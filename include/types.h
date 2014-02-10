@@ -152,4 +152,35 @@ typedef union
 } page_table_entry;
 
 
+typedef union
+{
+  unsigned int entry;
+  struct {
+    unsigned int accesstype : 2;
+    unsigned int sbz1       : 1; // should be zero
+    unsigned int ns         : 1; // secure(0)/non-secure(1)
+    unsigned int sbz2       : 1; // should be zero
+    unsigned int domain     : 4;
+    unsigned int p          : 1;
+    unsigned int ptbase_addr : 22;
+  } bits;
+} fl_page_table_entry;
+
+typedef union
+{
+  unsigned int entry;
+  struct {
+    unsigned int accesstype : 2;
+    unsigned int b          : 1;
+    unsigned int c          : 1;
+    unsigned int ap         : 2;
+    unsigned int tex        : 3;
+    unsigned int apx        : 1; // access permission extension
+    unsigned int s          : 1; // non-shared(0)/shared(1)
+    unsigned int ng         : 1; // global(0)/process-specific(1)
+    unsigned int pbase_addr : 20;
+  } bits;
+} sl_page_table_entry; //page 6-39
+
+
 #endif  /* __TYPES_H__ */

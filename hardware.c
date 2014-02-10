@@ -8,7 +8,7 @@
 extern unsigned int *p_rdtr ;
 DWord get_eflags(void)
 {
-  register DWord flags;
+  register DWord flags=0;
 /*__asm__ __volatile__(
   "pushfl\n\t"
   "popl %0"
@@ -21,14 +21,14 @@ void set_eflags(void)
 {
 /*__asm__ __volatile__(
   "pushl $0\n\t"
-  "popfl" );*/
+  "popfl" ); */
 }
 
 void set_idt_reg(Register * idt)
 {
 /*__asm__ __volatile__(
   "lidtl (%0)"
-  : /*no output*/
+  : *//*no output*/
 /*  : "r" (idt) );*/
 }
 
@@ -36,7 +36,7 @@ void set_gdt_reg(Register * gdt)
 {
 /*__asm__ __volatile__(
   "lgdtl (%0)"
-  : /*no output*/
+  : *//*no output*/
 /*  : "r" (gdt) );*/
 }
 
@@ -44,7 +44,7 @@ void set_ldt_reg(Selector ldt)
 {
 /*__asm__ __volatile__(
   "lldtw %0"
-  : /*no output*/
+  : *//*no output*/
 /*  : "r" (ldt) );*/
 }
 
@@ -52,7 +52,7 @@ void set_task_reg(Selector tr)
 {
 /*__asm__ __volatile__(
   "ltrw %0"
-  : /*no output*/
+  : *//*no output*/
 /*  : "r" (tr) );*/
 }
 
@@ -65,12 +65,12 @@ void return_gate(Word ds, Word ss, DWord esp, Word cs, DWord eip)
     "movl %2, %%eax\n\t"
     "addl $12, %%eax\n\t"
     "movl %5,(%%eax)\n\t"
-    "pushl %1\n\t"       /* user ss */
-/*    "pushl %2\n\t"       /* user esp */
-/*    "pushl %3\n\t"       /* user cs */
-/*    "pushl %4\n\t"       /* user eip */
+    "pushl %1\n\t"       *//* user ss */
+/*    "pushl %2\n\t"       *//* user esp */
+/*    "pushl %3\n\t"       *//* user cs */
+/*    "pushl %4\n\t"       *//* user eip */
 /*    "lret"
-    : /*no output*/
+    : *//*no output*/
 /*    : "r" (ds), "g" (ss), "g" (esp), "g" (cs), "g" (eip), "d" (*p_rdtr));*/
 }
 
@@ -102,8 +102,8 @@ void enable_int(void)
   "outb %%al,$0x21\n\t"
   "call delay\n\t"
   "sti"
-  : /*no output*/
-/*  : "i" (0xff)       /* 0xFF = 11111111 -> all bits disabled */
+  : *//*no output*/
+/*  : "i" (0xff)      */ /* 0xFF = 11111111 -> all bits disabled */
 /*  : "%al" ); */
 }
 

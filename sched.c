@@ -59,7 +59,7 @@ void init_sched(){
 
 struct task_struct* current()
 {
-  int ret_value;
+  int ret_value=0;
   
   /*__asm__ __volatile__(
   	"movl %%esp, %0"

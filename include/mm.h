@@ -18,6 +18,11 @@ extern Byte phys_mem[TOTAL_PAGES];
 int init_frames( void );
 int alloc_frame( void );
 void free_frame( unsigned int frame );
+
+void init_fl_ptable(void);
+void init_sl_ptable(void);
+void set_coprocessor_reg_MMU(void);
+
 void set_user_pages( struct task_struct *task );
 
 

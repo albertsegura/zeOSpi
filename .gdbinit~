@@ -1,0 +1,2 @@
+add-symbol-file user
+target remote localhost:1234

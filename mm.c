@@ -16,6 +16,9 @@ Descriptor  *gdt = (Descriptor *) GDT_START;
 /* Register pointing to the memory segments table */
 Register    gdtR;
 
+/* TSS */
+TSS         tss;
+
 /* PAGING */
 /* Variables containing the page directory and the page table */
   
@@ -25,55 +28,114 @@ page_table_entry dir_pages[NR_TASKS][TOTAL_PAGES]
 page_table_entry pagusr_table[NR_TASKS][TOTAL_PAGES]
   __attribute__((__section__(".data.task")));
 
-/* TSS */
-TSS         tss; 
 
+fl_page_table_entry fl_ptable[NR_TASKS][TOTAL_PAGES]
+__attribute__((__section__(".data.task")));
+
+sl_page_table_entry sl_ptable[NR_TASKS][TOTAL_PAGES]
+__attribute__((__section__(".data.task")));
 
 
 /***********************************************/
 /************** PAGING MANAGEMENT **************/
 /***********************************************/
 
-/* Init page table directory */
-  
-void init_dir_pages()
+/* Initializes paging for the system address space */
+void init_mm()
 {
-int i;
+  // Configuration of related Coprocessor registers (secure world)
+  set_coprocessor_reg_MMU();
 
-for (i = 0; i< NR_TASKS; i++) {
-  dir_pages[i][ENTRY_DIR_PAGES].entry = 0;
-  dir_pages[i][ENTRY_DIR_PAGES].bits.pbase_addr = (((unsigned int)&pagusr_table[i]) >> 12);
-  dir_pages[i][ENTRY_DIR_PAGES].bits.user = 1;
-  dir_pages[i][ENTRY_DIR_PAGES].bits.rw = 1;
-  dir_pages[i][ENTRY_DIR_PAGES].bits.present = 1;
+  // Configuration of frist and second level page tables
+  init_frames();
+  init_sl_ptable();
+  init_fl_ptable();
 
-  task[i].task.dir_pages_baseAddr = (page_table_entry *)&dir_pages[i][ENTRY_DIR_PAGES];
+  // Disable&Invalidate Inst cache (secure world)
+
+  //Enable MMU & re-enable Inst cache
+
 }
+
+/* Initializes the page table (kernel pages only) */
+void init_sl_ptable(void) {
+    int i,j;
+    /* reset all entries */
+    for (j=0; j< NR_TASKS; j++) {
+        for (i=0; i<TOTAL_PAGES; i++) {
+            sl_ptable[j][i].entry = 0;
+            sl_ptable[j][i].bits.accesstype = 0b11; // Necessari?
+        }
+        /* Init kernel pages */
+        for (i=1; i<NUM_PAG_KERNEL; i++) // Leave the page inaccessible to comply with NULL convention
+        {
+            // Logical page equal to physical page (frame)
+            sl_ptable[j][i].bits.pbase_addr = i;
+            //sl_ptable[j][i].bits.rw = 1;
+            //sl_ptable[j][i].bits.present = 1;
+        }
+    }
+}
+
+/* Init page table directory */
+void init_fl_ptable(void) {
+    int i;
+
+    for (i = 0; i< NR_TASKS; i++) {
+        fl_ptable[i][ENTRY_DIR_PAGES].entry = 0;
+        fl_ptable[i][ENTRY_DIR_PAGES].bits.ptbase_addr = (((unsigned int)&sl_ptable[i]) >> 12);
+        fl_ptable[i][ENTRY_DIR_PAGES].bits.accesstype = 0b01; // Necessari?
+        //fl_ptable[i][ENTRY_DIR_PAGES].bits.user = 1;
+        //fl_ptable[i][ENTRY_DIR_PAGES].bits.rw = 1;
+        //fl_ptable[i][ENTRY_DIR_PAGES].bits.present = 1;
+
+        //TODO task[i].task.dir_pages_baseAddr = (fl_page_table_entry *)&fl_ptable[i][ENTRY_DIR_PAGES];
+    }
+
+}
+
+/* Coprocessor Registers configuration relative to the MMU*/
+void set_coprocessor_reg_MMU(void) {
+
+
+
+}
+
+/* Init page table directory */
+void init_dir_pages(void) {
+    int i;
+
+    for (i = 0; i< NR_TASKS; i++) {
+        dir_pages[i][ENTRY_DIR_PAGES].entry = 0;
+        dir_pages[i][ENTRY_DIR_PAGES].bits.pbase_addr = (((unsigned int)&pagusr_table[i]) >> 12);
+        dir_pages[i][ENTRY_DIR_PAGES].bits.user = 1;
+        dir_pages[i][ENTRY_DIR_PAGES].bits.rw = 1;
+        dir_pages[i][ENTRY_DIR_PAGES].bits.present = 1;
+
+        task[i].task.dir_pages_baseAddr = (page_table_entry *)&dir_pages[i][ENTRY_DIR_PAGES];
+    }
 
 }
 
 /* Initializes the page table (kernel pages only) */
 void init_table_pages()
 {
-  int i,j;
-  /* reset all entries */
-for (j=0; j< NR_TASKS; j++) {
-  for (i=0; i<TOTAL_PAGES; i++)
-    {
-      pagusr_table[j][i].entry = 0;
-    }
-  /* Init kernel pages */
-  for (i=1; i<NUM_PAG_KERNEL; i++) // Leave the page inaccessible to comply with NULL convention 
-    {
-      // Logical page equal to physical page (frame)
-      pagusr_table[j][i].bits.pbase_addr = i;
-      pagusr_table[j][i].bits.rw = 1;
-      pagusr_table[j][i].bits.present = 1;
+    int i,j;
+    /* reset all entries */
+    for (j=0; j< NR_TASKS; j++) {
+        for (i=0; i<TOTAL_PAGES; i++) {
+            pagusr_table[j][i].entry = 0;
+        }
+    /* Init kernel pages */
+        for (i=1; i<NUM_PAG_KERNEL; i++) // Leave the page inaccessible to comply with NULL convention
+        {
+            // Logical page equal to physical page (frame)
+            pagusr_table[j][i].bits.pbase_addr = i;
+            pagusr_table[j][i].bits.rw = 1;
+            pagusr_table[j][i].bits.present = 1;
+        }
     }
 }
-}
-
-
 
 /* Initialize pages for initial process (user pages) */
 void set_user_pages( struct task_struct *task )
@@ -129,15 +191,6 @@ void set_pe_flag()
   //write_cr0(cr0);
 }
 
-/* Initializes paging for the system address space */
-void init_mm()
-{
-  init_table_pages();
-  init_frames();
-  init_dir_pages();
-  set_cr3(get_DIR(&task[0].task));
-  set_pe_flag();
-}
 /***********************************************/
 /************** SEGMENTATION MANAGEMENT ********/
 /***********************************************/
@@ -193,8 +246,7 @@ void setTSS()
  
 /* Initializes the ByteMap of free physical pages.
  * The kernel pages are marked as used */
-int init_frames( void )
-{
+int init_frames( void ) {
     int i;
     /* Mark pages as Free */
     for (i=0; i<TOTAL_PAGES; i++) {
