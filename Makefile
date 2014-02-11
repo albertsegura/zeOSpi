@@ -90,6 +90,5 @@ gdb: zeos.bin
 	$(LOCTOOL)/arm-linux-gnueabihf-gdb
 
 raspbuild: zeos.bin
-	#
 
 

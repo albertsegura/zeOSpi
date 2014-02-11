@@ -78,7 +78,6 @@ void init_sl_ptable(void) {
 
             sl_ptable[j][i].bits.setbit = 1;
             sl_ptable[j][i].bits.xn = 0; // TODO check si es pot separar codi de data
-
             //sl_ptable[j][i].bits.present = 1;
         }
     }
@@ -149,6 +148,8 @@ void set_coprocessor_reg_MMU(void) {
 	__asm__("MCR P15, 0, r7, c15, c6, 2");
 	// TLB lockdown access
 	__asm__("MCR P15, 0, r7, c15, c7, 2");
+
+
 }
 
 /* Init page table directory */
