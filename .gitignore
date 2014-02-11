@@ -1,0 +1,10 @@
+.settings/
+.cproject
+.project
+*~
+*.o
+*.img
+*.out
+*.s
+system
+user
