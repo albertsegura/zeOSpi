@@ -22,10 +22,10 @@ TSS         tss;
 /* PAGING */
 /* Variables containing the page directory and the page table */
   
-page_table_entry dir_pages[NR_TASKS][TOTAL_PAGES]
+page_table_entry dir_pages[1][1]
   __attribute__((__section__(".data.task")));
 
-page_table_entry pagusr_table[NR_TASKS][TOTAL_PAGES]
+page_table_entry pagusr_table[1][1]
   __attribute__((__section__(".data.task")));
 
 
@@ -41,19 +41,29 @@ __attribute__((__section__(".data.task")));
 /***********************************************/
 
 /* Initializes paging for the system address space */
-void init_mm()
-{
-  // Configuration of related Coprocessor registers (secure world)
-  set_coprocessor_reg_MMU();
+void init_mm() {
+	unsigned int mmu_en=0;
+	/* 1. Program all relevant CP15 registers of the corresponding world. */
+	set_coprocessor_reg_MMU();
 
-  // Configuration of frist and second level page tables
-  init_frames();
-  init_sl_ptable();
-  init_fl_ptable();
+	/* 2. Program first-level and second-level descriptor page tables as required. */
+	init_frames();
+	init_sl_ptable();
+	init_fl_ptable();
 
-  // Disable&Invalidate Inst cache (secure world)
+	/* 3. Disable and invalidate the Instruction Cache for the corresponding world. You can then
+	 * re-enable the Instruction Cache when you enable the MMU. */
+	invalidate_icache();
+	disable_icache();
 
-  //Enable MMU & re-enable Inst cache
+	/* 4. Enable the MMU by setting bit 0 in the CP15 Control Register in the corresponding world. */
+	__asm__ __volatile__ (
+		"MRC P15, 0,  %0,  c1, c0, 0;"
+		"ORR %0, %0, #1;"
+		"MCR P15, 0,  %0,  c1, c0, 0;"
+		: "+r"(mmu_en)
+	);
+	enable_icache();
 
 }
 
@@ -67,8 +77,7 @@ void init_sl_ptable(void) {
             sl_ptable[j][i].bits.setbit = 1;
         }
         /* Init kernel pages */
-        for (i=1; i<NUM_PAG_KERNEL; i++) // Leave the page inaccessible to comply with NULL convention
-        {
+        for (i=1; i<NUM_PAG_KERNEL; i++) {
             // Logical page equal to physical page (frame)
             sl_ptable[j][i].bits.pbase_addr = i;
 
@@ -103,54 +112,120 @@ void init_fl_ptable(void) {
 
 /* Coprocessor Registers configuration relative to the MMU*/
 void set_coprocessor_reg_MMU(void) {
-	// TODO llegir registre abans, modificar i escriure
-	// 0x0080
-	__asm__("MCR P15, 0, r7, c0, c0, 3");
-	// Fer en el system
-	__asm__("MCR P15, 0, r7, c1, c0, 0");
-	// 0x0000
-	__asm__("MCR P15, 0, r7, c1, c1, 2");
-	// TTB0 0x01
-	__asm__("MCR P15, 0, r7, c2, c0, 0");
-	// TTB1 0x
-	__asm__("MCR P15, 0, r7, c2, c0, 1");
-	// TTBC 0x
-	__asm__("MCR P15, 0, r7, c2, c0, 2");
-	// Domains
-	__asm__("MCR P15, 0, r7, c3, c0, 0");
-	// Data fault
-	__asm__("MCR P15, 0, r7, c5, c0, 0");
-	// Inst fault
-	__asm__("MCR P15, 0, r7, c5, c0, 1");
-	// Fault address register
-	__asm__("MCR P15, 0, r7, c6, c0, 0");
-	// Inst Fault address register
-	__asm__("MCR P15, 0, r7, c6, c0, 2");
-	// TLB Operation reg
-	__asm__("MCR P15, 0, r7, c8, c5, 0");
-	// TLB lockdown reg
-	__asm__("MCR P15, 0, r7, c10, c0, 0");
-	// Primary region
-	__asm__("MCR P15, 0, r7, c10, c2, 0");
-	// Normal Memory
-	__asm__("MCR P15, 0, r7, c10, c2, 1");
-	// FCSE PID
-	__asm__("MCR P15, 0, r7, c13, c0, 0");
-	// Context ID
-	__asm__("MCR P15, 0, r7, c13, c0, 1");
-	// Peripheral Port Memory Remap
-	__asm__("MCR P15, 0, r7, c15, c2, 4");
-	// TLB lockdown access
-	__asm__("MCR P15, 0, r7, c15, c4, 2");
-	// TLB lockdown access
-	__asm__("MCR P15, 0, r7, c15, c5, 2");
-	// TLB lockdown access
-	__asm__("MCR P15, 0, r7, c15, c6, 2");
-	// TLB lockdown access
-	__asm__("MCR P15, 0, r7, c15, c7, 2");
+	unsigned int ttb = (((unsigned int)&fl_ptable[0][ENTRY_DIR_PAGES] << 14) && 0xFFFFC000);
+	__asm__ __volatile__ (
+		"MCR P15, 0,  %0,  c1, c1, 2;" 	// Non-secure address control
+		"MCR P15, 0,  %1,  c2, c0, 0;"	// TTB0
+		"MCR P15, 0,  %2,  c2, c0, 1;"	// TTB1
+		"MCR P15, 0,  %3,  c2, c0, 2;"	// TTBC
 
+		"MCR P15, 0,  %4,  c3, c0, 0;"	// Domains TODO wtf domains?
+		//"MCR P15, 0,  %5,  c5, c0, 0;"	// Data fault, Produce status of error
+		//"MCR P15, 0,  %6,  c5, c0, 1;"	// Inst fault, Produce status of error
+		//"MCR P15, 0,  %7,  c6, c0, 0;"	// Fault address register, Produce status of error
+
+		//"MCR P15, 0,  %8,  c6, c0, 2;"	// Inst Fault address register, Produce status of error
+		//"MCR P15, 0,  %9,  c8, c5, 0;"	// TLB instruction reg, Used to invalidate TLB
+		"MCR P15, 0,  %5, c10, c0, 0;"	// TLB lockdown reg // O for the moment
+		"MCR P15, 0,  %6, c10, c2, 0;"	// Primary region
+		"MCR P15, 0,  %7, c10, c2, 1;"	// Normal Memory
+
+		"MCR P15, 0,  %8, c13, c0, 0;"	// FCSE PID
+		"MCR P15, 0,  %9, c13, c0, 1;"	// Context ID
+		"MCR P15, 0, %10, c15, c2, 4;"	// Peripheral Port Memory Remap
+		"MCR P15, 5, %11, c15, c4, 2;"	// TLB lockdown access
+
+		"MCR P15, 5, %12, c15, c5, 2;"	// TLB lockdown access
+		"MCR P15, 5, %13, c15, c6, 2;" 	// TLB lockdown access
+		"MCR P15, 5, %14, c15, c7, 2;"	// TLB lockdown access
+		: /* no output */
+		: "r"(0), "r"(ttb), "r"(ttb), "r"(0),\
+		  "r"(0), "r"(0), "r"(0x98AA4), "r"(0x44E048E0), \
+		  "r"(0), "r"(0), "r"(0), "r"(0), \
+		  "r"(0), "r"(0), "r"(0)
+	);
+}
+
+
+void enable_icache() {
+	unsigned int creg=0;
+	__asm__ __volatile__ (
+		"MRC P15, 0,  %0,  c1, c0, 0;"
+		"ORR %0, %0, #4096;"
+		"MCR P15, 0,  %0,  c1, c0, 0;"
+		: "+r"(creg)
+	);
+}
+
+void disable_icache() {
+	unsigned int creg=0;
+	__asm__ __volatile__ (
+		"MRC P15, 0,  %0,  c1, c0, 0;"
+		"BIC %0, %0, #4096;"
+		"MCR P15, 0,  %0,  c1, c0, 0;"
+		: "+r"(creg)
+	);
+}
+
+void invalidate_icache() {
+	unsigned int cpsr=0;
+	// TODO pensar si esquema de pagina 3.75 es necessari
+	// depen si les caches es poden tenir habilitades/deshabilitades en cada món
+	__asm__ __volatile__ (
+		"MRS %0, cpsr_all;"
+		"BIC %0, %0, #192;"
+		"MCR P15, 0,  %0,  c7, c5, 0;"
+		"ORR %0, %0, #192;"
+		"MSR cpsr_all, %0;"
+		: "+r"(cpsr)
+	);
 
 }
+
+void enable_dcache() {
+	unsigned int creg=0;
+	__asm__ __volatile__ (
+		"MRC P15, 0,  %0,  c1, c0, 0;"
+		"ORR %0, %0, #4;"
+		"MCR P15, 0,  %0,  c1, c0, 0;"
+		: "+r"(creg)
+	);
+}
+
+void disable_dcache() {
+	unsigned int creg=0;
+	__asm__ __volatile__ (
+		"MRC P15, 0,  %0,  c1, c0, 0;"
+		"BIC %0, %0, #4;"
+		"MCR P15, 0,  %0,  c1, c0, 0;"
+		: "+r"(creg)
+	);
+}
+
+void invalidate_dcache() {
+	// TODO Complete if necessary
+	__asm__ __volatile__ (
+		"MCR P15, 0,  %0,  c7, c6, 0;"
+		: /* no output */
+		: "r"(0)
+	);
+
+}
+
+
+/*
+ * Cache Management page 3-8
+ * c7 Cache operations
+ *
+ * Invalidate inst cache 0 c5 0		<-
+ * Flush prefetch buffer 0 c5 4  	<-
+ * Invalidate data cache 0 c6 0  	x
+ * invalidate both 0 c7 0		 	x
+ * Clean data cache 0 c10 0			x
+ * Clean and invalidate data cache 0 c14 0	x
+ *
+ */
+
 
 /* Init page table directory */
 void init_dir_pages(void) {

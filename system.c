@@ -68,7 +68,7 @@ inline void set_seg_regs(Word data_sel, Word stack_sel, DWord esp)
 
 int __attribute__((__section__(".text.main"))) main(void) {
 
-	__asm__("MRC P15, 0, r7, c1, c0, 0");
+	//__asm__("MRC P15, 0, r7, c1, c0, 0");
 	//clear_flags();  //replaces set_eflags();
 
 	/* Settings de Mode memoria real */
@@ -78,11 +78,12 @@ int __attribute__((__section__(".text.main"))) main(void) {
 	/* Kernel Carregat */ //printk("Kernel Loaded!    "); 
 
 	/* Initialize hardware data */
-	setGdt(); /* Definicio de la taula de segments de memoria */
-	setIdt(); /* Definicio del vector de interrupcions */
-	setTSS(); /* Definicio de la TSS */
+	//setGdt(); /* Definicio de la taula de segments de memoria */
+	//setIdt(); /* Definicio del vector de interrupcions */
+	//setTSS(); /* Definicio de la TSS */
 
 	/* Initialize Memory */
+	//TODO "MCR P15, 0, r7, c1, c0, 0" // Fer en el system
 	init_mm();
 
 	/* Initialize an address space to be used for the monoprocess version of ZeOS */

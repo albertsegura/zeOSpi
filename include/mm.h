@@ -37,6 +37,14 @@ void setGdt();
 
 void setTSS();
 
+void enable_icache();
+void disable_icache();
+void invalidate_icache();
+
+void enable_dcache();
+void disable_dcache();
+void invalidate_dcache();
+
 void set_ss_pag(page_table_entry *PT, unsigned page,unsigned frame);
 void del_ss_pag(page_table_entry *PT, unsigned page);
 unsigned int get_frame(page_table_entry *PT, unsigned int page);
