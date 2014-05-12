@@ -35,6 +35,7 @@
 /**                                              **/
 /**************************************************/
 
+/*
 #define SAVE_ALL \
       pushl %gs; \
       pushl %fs; \
@@ -50,4 +51,6 @@
       movl $__KERNEL_DS, %edx;    \
       movl %edx, %ds;           \
       movl %edx, %es
+*/
+
 

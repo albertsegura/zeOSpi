@@ -5,21 +5,19 @@
 #include <interrupt.h>
 #include <segment.h>
 #include <hardware.h>
-// TODO #include <io.h>
+#include <io.h>
+#include <uart.h>
+#include <timer.h>
 
-#include <zeos_interrupt.h>
 
-Gate idt[IDT_ENTRIES];
-Register    idtR;
-
-char char_map[] =
+/*char char_map[] =
 {
   '\0','\0','1','2','3','4','5','6',
-  '7','8','9','0','\'','ก','\0','\0',
+  '7','8','9','0','\'','ยก','\0','\0',
   'q','w','e','r','t','y','u','i',
   'o','p','`','+','\0','\0','a','s',
-  'd','f','g','h','j','k','l','๑',
-  '\0','บ','\0','็','z','x','c','v',
+  'd','f','g','h','j','k','l','รฑ',
+  '\0','ยบ','\0','รง','z','x','c','v',
   'b','n','m',',','.','-','\0','*',
   '\0','\0','\0','\0','\0','\0','\0','\0',
   '\0','\0','\0','\0','\0','\0','\0','7',
@@ -27,62 +25,93 @@ char char_map[] =
   '2','3','0','\0','\0','\0','<','\0',
   '\0','\0','\0','\0','\0','\0','\0','\0',
   '\0','\0'
-};
+};*/
 
-void setInterruptHandler(int vector, void (*handler)(), int maxAccessibleFromPL)
-{
-  /***********************************************************************/
-  /* THE INTERRUPTION GATE FLAGS:                          R1: pg. 5-11  */
-  /* ***************************                                         */
-  /* flags = x xx 0x110 000 ?????                                        */
-  /*         |  |  |                                                     */
-  /*         |  |   \ D = Size of gate: 1 = 32 bits; 0 = 16 bits         */
-  /*         |   \ DPL = Num. higher PL from which it is accessible      */
-  /*          \ P = Segment Present bit                                  */
-  /***********************************************************************/
-  Word flags = (Word)(maxAccessibleFromPL << 13);
-  flags |= 0x8E00;    /* P = 1, D = 1, Type = 1110 (Interrupt Gate) */
 
-  idt[vector].lowOffset       = lowWord((DWord)handler);
-  idt[vector].segmentSelector = __KERNEL_CS;
-  idt[vector].flags           = flags;
-  idt[vector].highOffset      = highWord((DWord)handler);
+void enable_interrupt_peripheral(unsigned int irq) {
+	if (irq < 32) {
+		set_address_to(IRQ_ENABLE_1, 1<<irq);
+	}
+	else if (irq < 64) {
+		set_address_to(IRQ_ENABLE_2, 1<<(irq-32));
+	}
+	else if (irq < 72) {
+		set_address_to(IRQ_ENABLE_B, 1<<(irq-64));
+	}
 }
 
-void setTrapHandler(int vector, void (*handler)(), int maxAccessibleFromPL)
-{
-  /***********************************************************************/
-  /* THE TRAP GATE FLAGS:                                  R1: pg. 5-11  */
-  /* ********************                                                */
-  /* flags = x xx 0x111 000 ?????                                        */
-  /*         |  |  |                                                     */
-  /*         |  |   \ D = Size of gate: 1 = 32 bits; 0 = 16 bits         */
-  /*         |   \ DPL = Num. higher PL from which it is accessible      */
-  /*          \ P = Segment Present bit                                  */
-  /***********************************************************************/
-  Word flags = (Word)(maxAccessibleFromPL << 13);
+void disable_interrupt_peripheral(unsigned int irq) {
+	if (irq < 32) {
+		set_address_to(IRQ_DISABLE_1, 1<<irq);
+	}
+	else if (irq < 64) {
+		set_address_to(IRQ_DISABLE_2, 1<<(irq-32));
+	}
+	else if (irq < 72) {
+		set_address_to(IRQ_DISABLE_B, 1<<(irq-64));
+	}
+}
 
-  //flags |= 0x8F00;    /* P = 1, D = 1, Type = 1111 (Trap Gate) */
-  /* Changed to 0x8e00 to convert it to an 'interrupt gate' and so
-     the system calls will be thread-safe. */
-  flags |= 0x8E00;    /* P = 1, D = 1, Type = 1110 (Interrupt Gate) */
+/* Exception Routines (except software_interrupt) */
+void reset_routine() {
+	while(1);
+}
 
-  idt[vector].lowOffset       = lowWord((DWord)handler);
-  idt[vector].segmentSelector = __KERNEL_CS;
-  idt[vector].flags           = flags;
-  idt[vector].highOffset      = highWord((DWord)handler);
+void undefined_instruction_routine() {
+	while(1);
+}
+
+void prefetch_abort_routine() {
+	while(1);
+}
+
+void data_abort_routine() {
+	while(1);
+}
+
+void interrupt_request_routine() {
+	if (get_value_from(IRQ_PEND_B)&0b1) { // TIMER
+		timer_clear_irq();
+		clock_increase();
+	}
+	else if (get_value_from(IRQ_PEND_1)&(1<<29)) { // AUX_UART
+		Byte data;
+		if (uart_interrupt_pend()) {
+			if (uart_interrupt_pend_rx()) {
+				data = uart_get_byte();
+				// TODO change to fill buffer
+				printc(data);
+				printc('\n'); printc(13);
+			}
+		}
+	}
+}
+
+void fast_interrupt_request_routine() {
+	while(1);
+}
+
+void setIdt() {
+ 	/* EXCEPTIONS */
+	unsigned int base = ((unsigned int)&exception_vector_table);
+	__asm__ __volatile__ ("MCR P15, 0,  %0,  c12, c0, 0;" :	: "r" (base));
+
+	/* INTERRUPTIONS */
+	// Handlers set at compiling time.
 }
 
 
-void setIdt()
-{
-  /* Program interrups/exception service routines */
-  idtR.base  = (DWord)idt;
-  idtR.limit = IDT_ENTRIES * sizeof(Gate) - 1;
-  /* ADD INITIALIZATION CODE FOR INTERRUPT VECTOR */
-  
-  //set_handlers();
 
-  set_idt_reg(&idtR);
+void enable_int(void) {
+	set_vitual_to_phsycial(IRQ_BASE,IRQ_BASE_PH,0);
+
+	enable_interrupt_peripheral(IRQ_PHPL_AUX);	// AUX_UART
+	enable_interrupt_peripheral(IRQ_PHPL_TIMER);
+
+	// TODO enable for more worlds ?
+	cpsr reg;
+	reg.entry = read_cpsr();
+	reg.bits.dI = 0;
+	write_cpsr(reg);
 }
 

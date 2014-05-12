@@ -64,6 +64,7 @@ int copy_to_user(void *start, void *dest, int size)
  */
 int access_ok(int type, const void * addr, unsigned long size)
 {
+	// TODO CHECK
   unsigned long addr_ini, addr_fin;
   
   addr_ini=(((unsigned long)addr)>>12);
@@ -83,4 +84,19 @@ int access_ok(int type, const void * addr, unsigned long size)
   }
   return 0;
 }
+
+inline void set_address_to(unsigned int address, unsigned int value) {
+	unsigned int * pt = (unsigned int *) address;
+	*(pt) = value;
+}
+
+inline unsigned int get_value_from(unsigned int address) {
+	unsigned int * pt = (unsigned int *) address;
+	return (*pt);
+}
+
+void delay(void) {
+	// Blank on purpose, generates: asm ("bx lr");
+}
+
 

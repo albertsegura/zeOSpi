@@ -9,107 +9,88 @@
 #include <system.h>
 #include <sched.h>
 #include <mm.h>
-// TODO #include <io.h>
+#include <io.h>
 #include <utils.h>
-#include <zeos_mm.h> /* TO BE DELETED WHEN ADDED THE PROCESS MANAGEMENT CODE TO BECOME MULTIPROCESS */
-
+#include <uart.h>
+#include <timer.h>
+//#include <sem.h> TODO include
 
 int (*usr_main)(void) = (void *) PH_USER_START;
-unsigned int *p_sys_size = (unsigned int *) KERNEL_START;
-unsigned int *p_usr_size = (unsigned int *) KERNEL_START+1;
-unsigned int *p_rdtr = (unsigned int *) KERNEL_START+2;
 
-/************************/
-/** Auxiliar functions **/
-/************************/
+// Pointers to the size of the system and user blocks specified at build/link time
+const unsigned int *p_sys_size = (unsigned int *) KERNEL_START+1;
+const unsigned int *p_usr_size = (unsigned int *) KERNEL_START+2;
 
-/**************************
- ** setSegmentRegisters ***
- **************************
- * Set properly all the registers, used
- * at initialization code.
- *   DS, ES, FS, GS <- DS
- *   SS:ESP <- DS:DATA_SEGMENT_SIZE
- *         (the stacks grows towards 0)
- *
- * cld -> gcc2 wants DF (Direction Flag (eFlags.df))
- *        always clear.
- */
-
-
-/*
- * This function MUST be 'inline' because it modifies the %esp 
- */
-inline void set_seg_regs(Word data_sel, Word stack_sel, DWord esp)
-{
-      esp = esp - 5*sizeof(DWord); /* To avoid overwriting task 1 */
-/*	  __asm__ __volatile__(
-		"cld\n\t"
-		"mov %0,%%ds\n\t"
-		"mov %0,%%es\n\t"
-		"mov %0,%%fs\n\t"
-		"mov %0,%%gs\n\t"
-		"mov %1,%%ss\n\t"
-		"mov %2,%%esp"
-		: *//* no output */
-/*		: "r" (data_sel), "r" (stack_sel), "g" (esp) ); */
-
+/* This function MUST be 'inline' because it modifies the sp & lr  */
+inline void set_initial_stack(void) {
+	__asm__ __volatile__ (
+		"MOV sp, %0;"
+		"MOV lr, #0;"
+		:
+		: "r"(INITAL_KERNEL_STACK)
+	);
 }
 
-/* Coprocessor register access
- * write:	MCR{cond} P15,<Opcode_1>,<Rd>,<CRn>,<CRm>,<Opcode_2>
- * read: 	MRC{cond} P15,<Opcode_1>,<Rd>,<CRn>,<CRm>,<Opcode_2>
- */
-
-
-/*
- *   Main entry point to ZEOS Operatin System 
- */
-
+/* Main entry point to ZEOS Operative System */
 int __attribute__((__section__(".text.main"))) main(void) {
 
-	//__asm__("MRC P15, 0, r7, c1, c0, 0");
-	//clear_flags();  //replaces set_eflags();
-
-	/* Settings de Mode memoria real */
-	//set_seg_regs(__KERNEL_DS, __KERNEL_DS, KERNEL_ESP);
-	/* Settings de retorn de funció (KERNEL_ESP)*/
-
-	/* Kernel Carregat */ //printk("Kernel Loaded!    "); 
+	set_initial_stack();
+	set_worlds_stacks();
 
 	/* Initialize hardware data */
-	//setGdt(); /* Definicio de la taula de segments de memoria */
-	//setIdt(); /* Definicio del vector de interrupcions */
-	//setTSS(); /* Definicio de la TSS */
+	setIdt(); /* Definicio del vector de interrupcions */
+
+	//__asm__ __volatile__ (
+	//	"mov %r7, #4;"
+	//	"svc 0x0;"
+	//);
 
 	/* Initialize Memory */
-	//TODO "MCR P15, 0, r7, c1, c0, 0" // Fer en el system
 	init_mm();
 
-	/* Initialize an address space to be used for the monoprocess version of ZeOS */
+	//test_mmu_funct();
 
-	//monoprocess_init_addr_space(); /* TO BE DELETED WHEN ADDED THE PROCESS MANAGEMENT CODE TO BECOME MULTIPROCESS */
+	// Initialize Task queues
+	init_freequeue();
+	init_readyqueue();
+	init_keyboardqueue();
+	//init_semarray();
 
-	/* Initialize Scheduling */
-	init_sched();
+	/* Initialize Raspberry Pi Peripherals */
+	init_gpio();
+	init_uart();
+	init_timer();
 
-	/* Initialize idle task  data */
-	init_idle();
-	/* Initialize task 1 data */
-	init_task1();
+	printk("Kernel Loaded!\n");
+
+	/* Initialize an address space to be used for the monoproces version of ZeOS */
+
+	monoprocess_init_addr_space(); /* TO BE DELETED WHEN ADDED THE PROCESS MANAGEMENT CODE TO BECOME MULTIPROCESS */
+
+	//init_sched();
+
+	//init_idle();
+	//init_task1();
 
 	/* Move user code/data now (after the page table initialization) */
 	copy_data((void *) KERNEL_START + *p_sys_size, usr_main, *p_usr_size);
 
+	printk("Entering user mode...\n");
 
-	//printk("Entering user mode..."); 
+	//circularbInit(&cbuffer,cbuff, CBUFFER_SIZE);
 
 	enable_int();
-	/*
-	* We return from a 'theorical' call to a 'call gate' to reduce our privileges
-	* and going to execute 'magically' at 'usr_main'...
-	*/
-	return_gate(__USER_DS, __USER_DS, USER_ESP, __USER_CS, L_USER_START);
+/*
+	unsigned int old_time = clock_get_time();
+	while(1) {
+		if (old_time != clock_get_time()) {
+			old_time = clock_get_time();
+			printint(old_time);
+			printc('\n'); printc(13);
+		}
+	}
+*/
+	return_gate(USER_ESP, L_USER_START); // TODO canviar el nom de ESP
 
 	/* The execution never arrives to this point */
 	return 0;

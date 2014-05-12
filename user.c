@@ -1,16 +1,29 @@
-// TODO #include <libc.h>
+#include <libc.h>
+#include <perror.h>
 
-char buff[24];
+
+char buff[24] = {"Hola desde USER!"};
 
 int pid;
 
-int __attribute__ ((__section__(".text.main")))
-  main(void)
-{
-    /* Next line, tries to move value 0 to CR3 register. This register is a privileged one, and so it will raise an exception */
-     /* __asm__ __volatile__ ("mov %0, %%cr3"::"r" (0) ); */
-	pid = 2;
-	pid++;
-    
-  while(1) { }
+int __attribute__ ((__section__(".text.main"))) main(void) {
+	unsigned int old_time, tmp;
+	write (1, buff, strlen(buff));
+
+	old_time = gettime();
+	while(1) {
+		tmp = gettime();
+		if (old_time != tmp) {
+			old_time = tmp;
+
+			itoa(old_time,buff);
+			write(1,buff,strlen(buff));
+			write(1,"\n",1);
+		}
+	}
+
+	while(1) { }
+
+
+	return 0;
 }

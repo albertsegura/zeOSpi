@@ -23,5 +23,13 @@ SECTIONS
 
   . = ALIGN(4096);              /* task_structs array*/
   .data.task : { *(.data.task) }
+  . = ALIGN(16384); 
+  .data.mmu_fl_page : { *(.data.mmu_fl_page) }
+  . = ALIGN(1024); 
+  .data.mmu_sl_page : { *(.data.mmu_sl_page) }
+  . = ALIGN(1024); 
+  .data.mmu_sl_empty_page : { *(.data.mmu_sl_empty_page) }
+  . = ALIGN(4096); 
+  .data.mmu_empty_ph_page : { *(.data.mmu_empty_ph_page) }
 
 }
