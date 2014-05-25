@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <timer.h>
 #include <cbuffer.h>
+#include <interrupt.h>
 
 #define LECTURA 0
 #define ESCRIPTURA 1
@@ -33,10 +34,35 @@ int sys_clone (void (*function)(void), void *stack) {
 	return 0;
 }
 
-int sys_fork() {
+int sys_DEBUG_tswitch() {
+	/*struct list_head *new_list_task = list_first(&readyqueue);
+	list_del(new_list_task);
+	struct task_struct * new_task = list_head_to_task_struct(new_list_task);
+	struct task_struct * current_task = current();
+
+	list_add_tail(&current_task->list,&readyqueue);
+
+	task_switch((union task_union*)new_task);*/
+
+	sched_update_queues_state(&readyqueue,current());
+	sched_switch_process();
+
+	return 0;
+}
+
+int sys_fork_wrapper() {
+	int current_sp = 0;
+	__asm__ __volatile__(
+			"mov %0, sp;"
+			: "=r" (current_sp)
+	);
+	return sys_fork(current_sp);
+}
+
+int sys_fork(unsigned int last_sp) {
 	int PID;
-	int current_ebp = 0;
-	unsigned int pos_ebp = 0; // posició del ebp en la stack: new/current_stack->stack[pos_ebp]
+	//int current_sp = 0;
+	unsigned int pos_sp = 0; // sp position relatively from the stack
 	int pag;
 	int new_ph_pag;
 	int frames[NUM_PAG_DATA];
@@ -49,13 +75,9 @@ int sys_fork() {
 	struct task_struct * current_pcb = current();
 	union task_union *new_stack = (union task_union*)new_pcb;
 
-	// TODO imitar per a arm
-	/* Càlcul de pos_ebp */
-	/*__asm__ __volatile__(
-	  		"mov %%ebp,%0;"
-	  		: "=r" (current_ebp)
-	  );
-	pos_ebp = ((unsigned int)current_ebp-(unsigned int)current_pcb)/4;*/
+
+
+	pos_sp = ((unsigned int)last_sp-(unsigned int)current_pcb)/4;
 
 	/* Obtenció dels frames per al nou procés */
 	for (pag=0;pag<NUM_PAG_DATA;pag++){
@@ -67,9 +89,9 @@ int sys_fork() {
 		else frames[pag] = new_ph_pag;
 	}
 
-	/* Copia del Stack, i restauració del directori del fill*/
+	/* Copia del Stack, i obtenció del directori del fill*/
 	copy_data(current_pcb, new_pcb, 4096);
-	// TODO allocate_page_dir(new_pcb);
+	allocate_page_dir(new_pcb);
 
 	/* Punt d.i: Copia de les page tables de codi, i assignació de
 	 * 						frames per a les dades	*/
@@ -79,32 +101,63 @@ int sys_fork() {
 
 	/* CODE */
 	for (pag=0;pag<NUM_PAG_CODE;pag++) {
-		pt_usr_new[PAG_LOG_INIT_CODE_P0-NUM_PAG_KERNEL+pag].entry
-			= pt_usr_current[PAG_LOG_INIT_CODE_P0-NUM_PAG_KERNEL+pag].entry;
+		pt_usr_new[pag].entry = pt_usr_current[pag].entry;
 	}
 
 	/* DATA */
 	for (pag=0;pag<NUM_PAG_DATA;pag++) {
-		set_ss_pag(pt_usr_new,PAG_LOG_INIT_DATA_P0-NUM_PAG_KERNEL+pag,frames[pag]);
+		set_ss_pag(pt_usr_new,INIT_USR_DATA_PAG_D1+pag,frames[pag]);
 	}
 
-	// TODO copia de la zona de dades
+	/* Punt d.ii */
+	/* Gestió extra per evitar problemes amb Memoria dinàmica:
+	 * 	- Busquem entrades a la page_table lliures, en comptes de 20 directes
+	 * 	- Si arribem al limit sense haver-ne trobat ni una retornem error, doncs
+	 * 		no es pot fer el fork per falta de page tables entry al pare.
+	 * 	- Si arribem al limit però hem pogut fer almenys una copia:
+	 * 		flush a la TLB i tornem a buscar desde el principi.
+	 * */
+	int free_pag = PROC_FIRST_FREE_PAG_D1;
+	for (pag=0;pag<NUM_PAG_DATA;pag++){
+			while (check_used_page(&pt_usr_current[free_pag]) && free_pag<TOTAL_PAGES_ENTRIES) free_pag++;
+
+			if (free_pag == TOTAL_PAGES_ENTRIES) {
+				if (pag != 0) {
+					free_pag = PROC_FIRST_FREE_PAG_D1;
+					--pag;
+					// TLB flush
+					//set_cr3(dir_current);
+				}
+				else return -ENEPTE;
+			}
+			else {
+				/* d.ii.A: Assignació de noves pàgines logiques al procés actual, corresponents
+				 * 					a les pàgines físiques obtingudes per al procés nou	*/
+				set_ss_pag(pt_usr_current,free_pag,pt_usr_new[INIT_USR_DATA_PAG_D1+pag].bits.pbase_addr);
+
+				/* d.ii.B: Copia de l'espai d'usuari del proces actual al nou */
+				copy_data((void *)((PAG_LOG_INIT_DATA_P0+pag)<<12),	(void *)((0x100+free_pag)<<12), PAGE_SIZE);
+
+				/* d.ii.C: Desassignació de les pagines en el procés actual */
+				del_ss_pag(pt_usr_current, free_pag);
+
+				free_pag++;
+			}
+	}
 
 	/* Flush de la TLB */
 	// TODO set_cr3(dir_current);
 
-	// TODO gestió copia memoria dinàmica
+	// TODO gestió copia memoria dinàmica HEAP
 
 	PID = getNewPID();
 	new_pcb->PID = PID;
 
 	/* Punt f i g */
-	// eax del Save_all (Serà el pid de retorn del fill)
-	new_stack->stack[pos_ebp+8] = 0;
 	// Construint l'enllaç dinamic fent que el esp apunti al ebp guardat
-	new_stack->task.kernel_esp = (unsigned int)&new_stack->stack[pos_ebp];
+	new_stack->task.kernel_sp = (unsigned int)&new_stack->stack[pos_sp]; // TODO fix, pos incorrecte
 	// Modificant la funció a on retornarà
-	//new_stack->stack[pos_ebp+1] = (unsigned int)&ret_from_fork; // TODO veure com implementar-ho
+	new_stack->task.kernel_lr = &ret_from_fork;
 
 	/* Inicialització estadistica */
 	new_stack->task.process_state = ST_READY;

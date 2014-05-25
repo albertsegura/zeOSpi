@@ -50,6 +50,8 @@ int __attribute__((__section__(".text.main"))) main(void) {
 
 	//test_mmu_funct();
 
+	//while(1);
+
 	// Initialize Task queues
 	init_freequeue();
 	init_readyqueue();
@@ -61,21 +63,23 @@ int __attribute__((__section__(".text.main"))) main(void) {
 	init_uart();
 	init_timer();
 
-	printk("Kernel Loaded!\n");
+	//printk("Kernel Loaded!\n");
+
+	//test_mmu_tlb_status();
 
 	/* Initialize an address space to be used for the monoproces version of ZeOS */
 
-	monoprocess_init_addr_space(); /* TO BE DELETED WHEN ADDED THE PROCESS MANAGEMENT CODE TO BECOME MULTIPROCESS */
+	//monoprocess_init_addr_space(); /* TO BE DELETED WHEN ADDED THE PROCESS MANAGEMENT CODE TO BECOME MULTIPROCESS */
 
-	//init_sched();
+	init_sched();
 
-	//init_idle();
-	//init_task1();
+	init_idle();
+	init_task1();
 
 	/* Move user code/data now (after the page table initialization) */
 	copy_data((void *) KERNEL_START + *p_sys_size, usr_main, *p_usr_size);
 
-	printk("Entering user mode...\n");
+	//printk("Entering user mode...\n");
 
 	//circularbInit(&cbuffer,cbuff, CBUFFER_SIZE);
 

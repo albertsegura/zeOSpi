@@ -7,6 +7,18 @@ char buff[24] = {"Hola desde USER!"};
 int pid;
 
 int __attribute__ ((__section__(".text.main"))) main(void) {
+
+
+	pid = fork();
+	if (pid == 0) { // fill
+
+	}
+	else {
+		debug_task_switch();
+	}
+	while(1);
+
+
 	unsigned int old_time, tmp;
 	write (1, buff, strlen(buff));
 

@@ -8,7 +8,10 @@
 #include <types.h>
 #include <mm_address.h>
 #include <sched.h>
- 
+#include <timer.h>
+#include <gpio.h>
+#include <io.h>
+
 #define FREE_FRAME 0
 #define USED_FRAME 1
 /* Bytemap to mark the free physical pages */
@@ -18,6 +21,7 @@ int init_frames( void );
 int alloc_frame( void );
 void free_frame( unsigned int frame );
 
+void init_mm();
 void init_dir_pages(void);
 void init_table_pages(void);
 void init_empty_pages(void);
@@ -25,7 +29,7 @@ void set_coprocessor_reg_MMU(void);
 
 void set_user_pages( struct task_struct *task );
 
-void init_mm();
+void mmu_change_dir (fl_page_table_entry * dir);
 
 void enable_icache();
 void disable_icache();
@@ -35,6 +39,7 @@ void enable_dcache();
 void disable_dcache();
 void invalidate_dcache();
 
+char check_used_page(sl_page_table_entry *pt);
 void set_ss_pag(sl_page_table_entry *PT, unsigned page,unsigned frame);
 void del_ss_pag(sl_page_table_entry *PT, unsigned page);
 unsigned int get_frame(sl_page_table_entry *PT, unsigned int page);
@@ -46,6 +51,7 @@ void get_newpb (struct task_struct *p);
 
 /* Temp */
 void test_mmu_funct(void);
+void test_mmu_tlb_status(void);
 void monoprocess_init_addr_space(void);
 
 #endif  /* __MM_H__ */

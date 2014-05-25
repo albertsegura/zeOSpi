@@ -62,6 +62,7 @@ extern unsigned int exception_vector_table;
  * Fast interrupt request 	0x0000001c
  */
 
+void ret_from_fork();
 
 void reset_routine();
 void undefined_instruction_routine();

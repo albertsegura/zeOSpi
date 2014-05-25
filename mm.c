@@ -27,6 +27,9 @@ __attribute__((__section__(".data.mmu_sl_empty_page")));
 Byte empty_ph_page[4096]
 __attribute__((__section__(".data.mmu_empty_ph_page")));
 
+/* Counters for the references to a same directory entry. */
+Byte assigned_base_dir[NR_TASKS];
+
 /***********************************************/
 /************** PAGING MANAGEMENT **************/
 /***********************************************/
@@ -67,24 +70,28 @@ void init_mm() {
 
 }
 
+void set_empty_page(sl_page_table_entry * empty_page) {
+	empty_page->entry = 0;
+	empty_page->bits.pbase_addr = PH_PAGE(((int)&empty_ph_page[0]));
+
+    empty_page->bits.xn = 1;
+    empty_page->bits.setbit = 1;
+    empty_page->bits.b = 0;
+    empty_page->bits.c = 0;
+
+    /* privileged == rw, user == rw */
+    empty_page->bits.ap = 0b11;
+    empty_page->bits.apx = 0;
+    empty_page->bits.tex = 0;
+    empty_page->bits.s = 1;
+    empty_page->bits.ng = 1;
+}
+
 void init_empty_pages(void) {
 	int i;
     /* Set empty pages to known and controlled memory space */
     for (i=0; i<TOTAL_PAGES_ENTRIES; i++) {
-    	empty_sl_ptable[i].entry = 0;
-    	empty_sl_ptable[i].bits.pbase_addr = PH_PAGE(((int)&empty_ph_page[0]));
-
-        empty_sl_ptable[i].bits.xn = 1;
-        empty_sl_ptable[i].bits.setbit = 1;
-        empty_sl_ptable[i].bits.b = 0;
-        empty_sl_ptable[i].bits.c = 0;
-
-        /* privileged == rw, user == rw */
-        empty_sl_ptable[i].bits.ap = 0b11;
-        empty_sl_ptable[i].bits.apx = 0;
-        empty_sl_ptable[i].bits.tex = 0;
-        empty_sl_ptable[i].bits.s = 1;
-        empty_sl_ptable[i].bits.ng = 1;
+    	set_empty_page(&(empty_sl_ptable[i]));
     }
     for (i=0; i<4096; i+=8) {
     	empty_ph_page[i]	= 0x67;
@@ -99,6 +106,10 @@ void init_empty_pages(void) {
 
 }
 
+char check_used_page(sl_page_table_entry *pt) {
+	return (pt->entry != empty_sl_ptable[0].entry);
+}
+
 /* Initializes the page table (kernel pages only) */
 void init_table_pages(void) {
     int i,j,k;
@@ -106,26 +117,25 @@ void init_table_pages(void) {
     for (i=0; i< NR_TASKS; i++) {
         for (j=0; j<NUM_DIR_ENTRIES; j++) {
         	for (k=0; k<TOTAL_PAGES_ENTRIES; k++) {
-				sl_ptable[i][j][k].entry = 0;
-				sl_ptable[i][j][k].bits.setbit = 1;
+				set_empty_page(&(sl_ptable[i][j][k]));
         	}
         }
         /* Init kernel pages */
-        for (j=0; j<NUM_PAG_KERNEL; j++) {
+        for (k=0; k<NUM_PAG_KERNEL; k++) {
             // Logical page equal to physical page (frame)
-            sl_ptable[i][0][j].bits.pbase_addr = j;
+            sl_ptable[i][0][k].bits.pbase_addr = k;
 
-            sl_ptable[i][0][j].bits.xn = 0; // TODO check si es pot separar codi de data
-            sl_ptable[i][0][j].bits.setbit = 1;
-            sl_ptable[i][0][j].bits.b = 0;
-            sl_ptable[i][0][j].bits.c = 0;
+            sl_ptable[i][0][k].bits.xn = 0; // TODO check si es pot separar codi de data
+            sl_ptable[i][0][k].bits.setbit = 1;
+            sl_ptable[i][0][k].bits.b = 0;
+            sl_ptable[i][0][k].bits.c = 0;
 
             /* privileged == rw, user == no access */
-            sl_ptable[i][0][j].bits.ap = 0b01;
-            sl_ptable[i][0][j].bits.apx = 0;
-            sl_ptable[i][0][j].bits.tex = 0;
-            sl_ptable[i][0][j].bits.s = 1;
-            sl_ptable[i][0][j].bits.ng = 1; // global vs nonglobal (process specific)
+            sl_ptable[i][0][k].bits.ap = 0b01;
+            sl_ptable[i][0][k].bits.apx = 0;
+            sl_ptable[i][0][k].bits.tex = 0;
+            sl_ptable[i][0][k].bits.s = 1;
+            sl_ptable[i][0][k].bits.ng = 1; // global vs nonglobal (process specific)
         }
     }
 }
@@ -135,7 +145,8 @@ void init_dir_pages(void) {
     int i, j;
 
     for (i = 0; i < NR_TASKS; i++) {
-    	task[i].task.dir_pages_baseAddr = (fl_page_table_entry *)&fl_ptable[i][0];
+    	assigned_base_dir[i] = 0;
+    	//task[i].task.dir_pages_baseAddr = (fl_page_table_entry *)&fl_ptable[i][0];
 
     	for (j=0; j < NUM_DIR_ENTRIES; j++) {
 			fl_ptable[i][j].entry = 0;
@@ -176,12 +187,38 @@ void test_mmu_funct(void) {
 			"MCR P15, 0,  %0,  c8, c7, 0;" // invalidate tlb
 			: "+r"(mmu_en)
 	);
+}
 
+void test_mmu_tlb_status(void) {
+	unsigned int volatile aux;
+	unsigned int volatile * pt;
+
+	aux = 0x30;
+	//dissable PD0/1 Page table walks
+	__asm__ __volatile__ (
+		"MCR P15, 0,  %0,  c2, c0, 2;"
+		: "+r"(aux)
+	);
+
+	pt = (unsigned int *) 0xE0000;
+	*(pt) = 0xdeadbeef;
+	sl_ptable[0][0][224].bits.pbase_addr = 0;
+	aux = get_value_from(0xE0000);
+
+	// Test invalidate caches
+
+	if (aux == 0xdeadbeef) {
+		printk("TLB OFF\n");
+	}
+	else printk("TLB ON\n");
+	printhex(aux);
+
+	while(1);
 }
 
 /* Coprocessor Registers configuration relative to the MMU*/
 void set_coprocessor_reg_MMU(void) {
-	unsigned int ttb = (unsigned int)&fl_ptable[0][ENTRY_DIR_PAGES];
+	unsigned int ttb = (unsigned int)&fl_ptable[1][ENTRY_DIR_PAGES];
 	__asm__ __volatile__ (
 		"MCR P15, 0,  %0,  c1, c1, 2;" 	// Non-secure address control
 		"MCR P15, 0,  %1,  c2, c0, 0;"	// TTB0
@@ -207,8 +244,8 @@ void set_coprocessor_reg_MMU(void) {
 		"MCR P15, 5, %12, c15, c5, 2;"	// TLB lockdown access
 		"MCR P15, 5, %13, c15, c6, 2;" 	// TLB lockdown access
 		"MCR P15, 5, %14, c15, c7, 2;"	// TLB lockdown access
-		: /* no output */
-		: "r"(0), "r"(ttb), "r"(ttb), "r"(0),\
+		: /* no output */				// TODO valor anterior de TTBC=0
+		: "r"(0), "r"(ttb), "r"(ttb), "r"(0x30), \
 		  "r"(0xFFFFFFFF), "r"(0), "r"(0x98AA4), "r"(0x44E048E0), \
 		  "r"(0), "r"(0), "r"(0), "r"(0), \
 		  "r"(0), "r"(0), "r"(0)
@@ -310,48 +347,49 @@ void monoprocess_init_addr_space(void) {
 
 /* Initialize pages for initial process (user pages) */
 void set_user_pages( struct task_struct *task ) {
- int pag; 
- int new_ph_pag;
- sl_page_table_entry * process_PT =  get_PT(task,1);
+	int pag;
+	int new_ph_pag;
+	sl_page_table_entry * process_PT =  get_PT(task,1);
 
-  /* CODE */
-  for (pag=0;pag<NUM_PAG_CODE;pag++){
-	new_ph_pag=alloc_frame();
-  	process_PT[pag].entry = 0;
-  	process_PT[pag].bits.pbase_addr = new_ph_pag;
+	/* CODE */
+	for (pag=0;pag<NUM_PAG_CODE;pag++){
+		new_ph_pag=alloc_frame();
+		process_PT[pag].entry = 0;
+		process_PT[pag].bits.pbase_addr = new_ph_pag;
 
-  	process_PT[pag].bits.xn = 0;
-  	process_PT[pag].bits.setbit = 1;
-  	process_PT[pag].bits.b = 0;
-  	process_PT[pag].bits.c = 0;
+		process_PT[pag].bits.xn = 0;
+		process_PT[pag].bits.setbit = 1;
+		process_PT[pag].bits.b = 0;
+		process_PT[pag].bits.c = 0;
 
-    /* privileged == rw, user == r */
-  	process_PT[pag].bits.ap = 0b10;
-  	process_PT[pag].bits.apx = 0;
-  	process_PT[pag].bits.tex = 0;
-  	process_PT[pag].bits.s = 1;
-  	process_PT[pag].bits.ng = 1;
-  }
+		/* privileged == rw, user == r */
+		process_PT[pag].bits.ap = 0b10;
+		process_PT[pag].bits.apx = 0;
+		process_PT[pag].bits.tex = 0;
+		process_PT[pag].bits.s = 1;
+		process_PT[pag].bits.ng = 1;
+	}
 
-  /* DATA */ 
-  for (pag=8;pag<NUM_PAG_DATA+8;pag++){
-	new_ph_pag=alloc_frame();
-  	process_PT[pag].entry = 0;
-  	process_PT[pag].bits.pbase_addr = new_ph_pag;
+	/* DATA */
+	for (pag=NUM_PAG_CODE;pag<NUM_PAG_DATA+NUM_PAG_CODE;pag++){
+		new_ph_pag=alloc_frame();
+		process_PT[pag].entry = 0;
+		process_PT[pag].bits.pbase_addr = new_ph_pag;
 
-  	process_PT[pag].bits.xn = 1; // Not executable
-  	process_PT[pag].bits.setbit = 1;
-  	process_PT[pag].bits.b = 0;
-  	process_PT[pag].bits.c = 0;
+		process_PT[pag].bits.xn = 1; // Not executable
+		process_PT[pag].bits.setbit = 1;
+		process_PT[pag].bits.b = 0;
+		process_PT[pag].bits.c = 0;
 
-    /* privileged == rw, user == rw */
-  	process_PT[pag].bits.ap = 0b11;
-  	process_PT[pag].bits.apx = 0;
-  	process_PT[pag].bits.tex = 0;
-  	process_PT[pag].bits.s = 1;
-  	process_PT[pag].bits.ng = 1;
-  }
+		/* privileged == rw, user == rw */
+		process_PT[pag].bits.ap = 0b11;
+		process_PT[pag].bits.apx = 0;
+		process_PT[pag].bits.tex = 0;
+		process_PT[pag].bits.s = 1;
+		process_PT[pag].bits.ng = 1;
+	}
 }
+
 /* Sets the page of the virtual address to the page of the ph address of the current
  * task if "to_current_task==1" of all of the tasks if "to_current_task=0".
  *  WARNING: Virtual address has to be lower than 0x200000.
@@ -368,6 +406,16 @@ void set_vitual_to_phsycial(unsigned int virtual, unsigned ph, char to_current_t
 			sl_ptable[i][dir][page].bits.pbase_addr = (ph>>12);
 		}
 	}
+}
+
+void mmu_change_dir (fl_page_table_entry * dir) {
+	__asm__ __volatile__ (
+			"mcr P15, 0,  %0,  c2, c0, 0;"	// TTB0
+			"mcr P15, 0,  %0,  c2, c0, 1;"	// TTB1
+			: /* no output */
+			: "r"(dir)
+	);
+	// TODO invalidate tlb
 }
 
 
@@ -446,10 +494,26 @@ void set_ss_pag(sl_page_table_entry *PT, unsigned page,unsigned frame) {
 
 /* del_ss_pag - Removes mapping from logical page 'logical_page' */
 void del_ss_pag(sl_page_table_entry *PT, unsigned logical_page) {
-  PT[logical_page].entry=0;
+  PT[logical_page].entry=empty_sl_ptable[0].entry;
 }
 
 /* get_frame - Returns the physical frame associated to page 'logical_page' */
 unsigned int get_frame (sl_page_table_entry *PT, unsigned int logical_page) {
      return PT[logical_page].bits.pbase_addr; 
 }
+
+/* allocate_page_dir - Assignates a dir page to a task_struct and initializes its reference counter */
+void allocate_page_dir (struct task_struct *p) {
+	int i;
+	char found = 0;
+	for (i=0; i<NR_TASKS && !found; ++i) {
+		found = (assigned_base_dir[i] == 0);
+	}
+	--i;
+	p->dir_pages_baseAddr = (fl_page_table_entry *)&fl_ptable[i][ENTRY_DIR_PAGES];
+	p->dir_count = &assigned_base_dir[i];
+	assigned_base_dir[i] = 1;
+}
+
+
+

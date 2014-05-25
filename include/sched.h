@@ -13,7 +13,7 @@
 #define NR_TASKS      10
 #define KERNEL_STACK_SIZE	1024
 #define DEFAULT_RR_QUANTUM	100
-#define INITAL_KERNEL_STACK &task[0].stack[KERNEL_STACK_SIZE]
+#define INITAL_KERNEL_STACK &task[1].stack[KERNEL_STACK_SIZE]
 
 enum state_t { ST_RUN, ST_READY, ST_BLOCKED, ST_ZOMBIE };
 
@@ -27,7 +27,8 @@ struct task_struct {
 	int PID;			/* Process ID */
 	fl_page_table_entry * dir_pages_baseAddr;
 	struct list_head list;
-	unsigned long kernel_esp; // TODO change
+	unsigned long kernel_sp;
+	unsigned long kernel_lr;
 	struct stats statistics;
 	enum state_t process_state;
 
@@ -75,8 +76,7 @@ void init_semarray(void);
 
 struct task_struct * current();
 
-// TODO check void task_switch(union task_union*t, int need_eoi);
-void task_switch(union task_union *new);
+void task_switch(union task_union *new, unsigned int last_sp);
 
 int getNewPID();
 

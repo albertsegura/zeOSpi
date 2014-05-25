@@ -105,13 +105,14 @@ void init_idle (void) {
 	struct list_head *idle_list_pointer = list_first(&freequeue);
 	list_del(idle_list_pointer);
 	idle_task = list_head_to_task_struct(idle_list_pointer);
-
 	union task_union *idle_union_stack = (union task_union*)idle_task;
+	allocate_page_dir(idle_task);
 
 	idle_task->PID = 0;
-	idle_union_stack->stack[1023] = (unsigned long)&cpu_idle;
-	idle_union_stack->stack[1022] = 0;
-	idle_union_stack->task.kernel_esp = (unsigned long)&idle_union_stack->stack[1022];
+	/*idle_union_stack->stack[KERNEL_STACK_SIZE-1] = (unsigned long)&cpu_idle;
+	idle_union_stack->stack[KERNEL_STACK_SIZE-2] = 0;*/
+	idle_union_stack->task.kernel_sp = (unsigned long)&idle_union_stack->stack[KERNEL_STACK_SIZE-1];
+	idle_union_stack->task.kernel_lr = (unsigned long)&cpu_idle;
 
 	// Inicialitzacio estadistica
 	idle_task->statistics.cs = 0;
@@ -124,13 +125,13 @@ void init_task1(void) {
 	struct list_head *task1_list_pointer = list_first(&freequeue);
 	list_del(task1_list_pointer);
 	struct task_struct * task1_task_struct = list_head_to_task_struct(task1_list_pointer);
-	// TODO sbrk //allocate_page_dir(task1_task_struct);
+	allocate_page_dir(task1_task_struct);
 	fl_page_table_entry * dir_task1 = get_DIR(task1_task_struct);
 
 	task1_task_struct->PID = 1;
 	lastPID = 1;
 	set_user_pages(task1_task_struct);
-	// TODO reload TLB
+	mmu_change_dir(dir_task1);
 
 	// TODO sbrk //get_newpb(task1_task_struct);
 
@@ -138,32 +139,43 @@ void init_task1(void) {
 	task1_task_struct->statistics.cs = 0;
 	task1_task_struct->statistics.tics = 0;
 	task1_task_struct->statistics.remaining_quantum = DEFAULT_RR_QUANTUM;
-	task1_task_struct->process_state = ST_READY;
+	task1_task_struct->process_state = ST_READY; // TODO ready or run ?
 }
 
 
 void init_sched(){
-	//init_Sched_RR();
+	init_Sched_RR();
 }
 
-void task_switch(union task_union *new) { // TODO
-	/*struct task_struct * current_task_struct = current();
-	page_table_entry * dir_new = get_DIR((struct task_struct *) new);
-	page_table_entry * dir_current = get_DIR(current_task_struct);
+void task_switch(union task_union *new, unsigned int last_sp) { // TODO
+	fl_page_table_entry * dir_new = get_DIR((struct task_struct *) new);
+	fl_page_table_entry * dir_current = get_DIR(current());
 
-	tss.esp0 = (unsigned long)&new->stack[KERNEL_STACK_SIZE];
-	if (dir_new != dir_current) set_cr3(dir_new);
+	// if (dir_new != dir_current) set_cr3(dir_new);
 
-	unsigned long *kernel_esp = &current_task_struct->kernel_esp;
-	unsigned long new_kernel_esp = new->task.kernel_esp;
-*/
+	unsigned long *kernel_sp = &(current()->kernel_sp);
+	unsigned long *kernel_lr = &(current()->kernel_lr);
+	unsigned long new_kernel_sp = new->task.kernel_sp;
+	unsigned long new_kernel_lr = new->task.kernel_lr;
+
+	__asm__ __volatile__ (
+			"str 	%0, [%1];"
+			"str 	lr, [%2];"
+			"mov	sp, %3;"
+			"mov	lr, %4;"
+			"bx		lr;"
+			: /* no output */
+			: "r" (last_sp), "r" (kernel_sp), "r" (kernel_lr),
+			  "r" (new_kernel_sp), "r" (new_kernel_lr)
+	);
+
   //__asm__ __volatile__(
   //		"mov %%ebp,(%0);" 	/*	Punt 3	*/
   //		"mov %1,%%esp;" 		/*	Punt 4	*/
   //		"pop %%ebp;"				/*	Punt 5	*/
   //		"ret;"
   //		: /* no output */
-  //		: "r" (kernel_esp), "r" (new_kernel_esp)
+  //		: "r" (kernel_sp), "r" (new_kernel_sp)
   //);
 }
 
@@ -185,3 +197,61 @@ struct task_struct* current() {
 }
 
 /* SCHEDULER */
+
+void init_Sched_RR() {
+	sched_update_data = sched_update_data_RR;
+	sched_change_needed = sched_change_needed_RR;
+	sched_switch_process = sched_switch_process_RR;
+	sched_update_queues_state = sched_update_queues_state_RR;
+	rr_quantum = DEFAULT_RR_QUANTUM;
+
+	/* Inicialitzacio estadistica */
+	struct task_struct * current_task = current();
+	current_task->statistics.remaining_quantum = DEFAULT_RR_QUANTUM;
+	current_task->process_state = ST_READY;
+}
+
+void sched_update_data_RR() {
+	--rr_quantum;
+
+	/* Actualitzacio estadistica */
+	struct task_struct * current_task = current();
+	--(current_task->statistics.remaining_quantum);
+	++(current_task->statistics.tics);
+}
+
+int sched_change_needed_RR() {
+	return rr_quantum == 0;
+}
+
+void sched_switch_process_RR() {
+	struct list_head *task_list;
+	struct task_struct * task;
+
+	if (!list_empty(&readyqueue)) {
+		task_list = list_first(&readyqueue);
+		list_del(task_list);
+		task = list_head_to_task_struct(task_list);
+	}
+	else task = idle_task;
+
+	task->statistics.remaining_quantum = DEFAULT_RR_QUANTUM;
+	rr_quantum = DEFAULT_RR_QUANTUM;
+	if (task != current()) {
+		unsigned int current_sp = 0;
+		++task->statistics.cs;
+		task->process_state = ST_RUN;
+		current()->process_state = ST_READY;
+		__asm__ __volatile__ ("mov %0, sp" : "=r"(current_sp));
+		task_switch((union task_union*)task,current_sp);
+	}
+}
+
+void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task) {
+	if (ls == &freequeue) task->process_state = ST_ZOMBIE;
+	else if (ls == &readyqueue) task->process_state = ST_READY;
+	else if (ls == &keyboardqueue) task->process_state = ST_BLOCKED;
+	else task->process_state = ST_BLOCKED;
+
+	if (task != idle_task) list_add_tail(&task->list,ls);
+}

@@ -73,6 +73,12 @@ void interrupt_request_routine() {
 	if (get_value_from(IRQ_PEND_B)&0b1) { // TIMER
 		timer_clear_irq();
 		clock_increase();
+
+		sched_update_data();
+		if (sched_change_needed()) {
+			sched_update_queues_state(&readyqueue, current());
+			sched_switch_process();
+		}
 	}
 	else if (get_value_from(IRQ_PEND_1)&(1<<29)) { // AUX_UART
 		Byte data;

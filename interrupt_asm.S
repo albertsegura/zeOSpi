@@ -36,6 +36,9 @@ ENTRY_UA(software_interrupt_routine) ;@ Syscall routine
 	blx		r4
 	pop     {r4, r7, pc}
 
+ENTRY_UA(ret_from_fork)
+	mov		r0,	#0
+	ldmfd 	sp!, {r4-r12,pc}^
 
 ;@ Exception handlers
 ENTRY_UA(reset_handler)
@@ -51,7 +54,6 @@ ENTRY_UA(undefined_instruction_handler)
 ENTRY_UA(software_interrupt_handler)
 	stmfd 	sp!, {r4-r12,lr}
 	bl 		software_interrupt_routine
-ret_from_fork:
 	ldmfd 	sp!, {r4-r12,pc}^
 
 ENTRY_UA(prefetch_abort_handler)

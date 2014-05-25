@@ -20,6 +20,8 @@ int getpid();
 
 int fork();
 
+int debug_task_switch();
+
 void exit();
 
 int get_stats(int pid, struct stats *st);

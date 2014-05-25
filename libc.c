@@ -110,6 +110,19 @@ int fork() {
 	return ret;
 }
 
+/* Wrapper de la Syscall de Debug sys_DEBUG_tswitch */
+int debug_task_switch() {
+	int ret;
+	__asm__ volatile(
+		"mov %%r7, %1;"
+		"svc 0x0;"
+		:"=r" (ret)
+		:"r"  (9)
+		:"r7"
+	);
+	return ret;
+}
+
 /* Wrapper de la Syscall Exit */
 void exit() {
 	__asm__ volatile(
