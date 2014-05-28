@@ -10,11 +10,11 @@
 void return_gate(unsigned int sp, unsigned int pc) {
 	set_world_usr();
 	__asm__ __volatile__ (
-		"MOV sp, #0;"
-		"ORR sp, %0, #0;"
-		"MOV lr, #0;"
-		"ORR lr, %1, #0;"
-		"BX	 lr;"
+		"mov sp, #0;"
+		"mov sp, %0;"
+		"mov lr, #0;"
+		"mov lr, %1;"
+		"bx	 lr;"
 		:
 		: "r"(sp), "r"(pc)
 	);
@@ -37,7 +37,7 @@ void return_gate(unsigned int sp, unsigned int pc) {
  * |			|
  * +------------+ <- 0x00
  */
-void set_worlds_stacks(void) {
+void set_worlds_stacks(unsigned int stack) {
 	__asm__ __volatile__ (
 		// >> Calcule FIQ/IRQ Stack
 		"SUB %%r0, %0, #0x500;"
@@ -98,7 +98,7 @@ void set_worlds_stacks(void) {
 		"ORR %%r1, %%r1, #0x3;"
 		"MSR cpsr, %%r1;"
 		:
-		: "r"(INITAL_KERNEL_STACK)
+		: "r"(stack)
 		: "r0", "r1"
 	);
 }

@@ -4,12 +4,27 @@
 
 char buff[24] = {"Hola desde USER!"};
 
-int pid;
+int pid=0;
+char stack[1024];
+
+void cloneHello() {
+	//char pidc[11];
+	//pid = getpid();
+	/*write(1,"Surto del clone!\n",17);
+	int ret = read(0,pidc,5);
+	write(1,"Lectura: ",9);
+	write(1,pidc,5);
+	itoa(ret,pidc);
+	write(1," Size: ",7);
+	write(1,pidc,strlen(pidc));
+	write(1,"\n",1);*/
+	while(1);
+}
 
 int __attribute__ ((__section__(".text.main"))) main(void) {
-
-
-	pid = fork();
+	//pid = fork();
+	clone(cloneHello, &stack[1024]);
+	debug_task_switch();
 	if (pid == 0) { // fill
 
 	}

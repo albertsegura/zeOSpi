@@ -13,7 +13,7 @@
 #define NR_TASKS      10
 #define KERNEL_STACK_SIZE	1024
 #define DEFAULT_RR_QUANTUM	100
-#define INITAL_KERNEL_STACK &task[1].stack[KERNEL_STACK_SIZE]
+#define INITAL_KERNEL_STACK &task[1].stack[KERNEL_STACK_SIZE-1]
 
 enum state_t { ST_RUN, ST_READY, ST_BLOCKED, ST_ZOMBIE };
 
@@ -29,6 +29,9 @@ struct task_struct {
 	struct list_head list;
 	unsigned long kernel_sp;
 	unsigned long kernel_lr;
+	unsigned long user_sp;
+	unsigned long user_lr;
+
 	struct stats statistics;
 	enum state_t process_state;
 

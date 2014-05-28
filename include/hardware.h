@@ -9,6 +9,6 @@
 
 void return_gate(unsigned int sp, unsigned int pc);
 
-void set_worlds_stacks(void);
+void set_worlds_stacks(unsigned int stack);
 
 #endif  /* __HARDWARE_H__ */

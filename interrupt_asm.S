@@ -30,13 +30,14 @@ ENTRY(exception_vector_table)
 .extern fast_interrupt_request_routine
 
 ENTRY_UA(software_interrupt_routine) ;@ Syscall routine
-	push    {r4, r7, lr}
+	push    {lr}
 	ldr     r4, =sys_call_table
 	ldr		r4, [r4, r7, lsl #2]
 	blx		r4
-	pop     {r4, r7, pc}
+	pop     {pc}
 
 ENTRY_UA(ret_from_fork)
+	pop     {r0}	;@ pop the swi routine stacked registers
 	mov		r0,	#0
 	ldmfd 	sp!, {r4-r12,pc}^
 
@@ -53,6 +54,14 @@ ENTRY_UA(undefined_instruction_handler)
 
 ENTRY_UA(software_interrupt_handler)
 	stmfd 	sp!, {r4-r12,lr}
+	cps		#0x1F ;@ system
+	mov 	r4, sp
+	mov		r5, lr
+	cps		#0x13 ;@ supervisor
+	bic		r6, sp, #0xFF0
+	bic		r6, r6, #0xF
+	add		r6,	r6,	#0x1C
+	stmda 	r6, {r4,r5}
 	bl 		software_interrupt_routine
 	ldmfd 	sp!, {r4-r12,pc}^
 
@@ -71,6 +80,14 @@ ENTRY_UA(data_abort_handler)
 ENTRY_UA(interrupt_request_handler)
 	subs 	lr, lr, #4
 	stmfd 	sp!, {r0-r12,lr}
+	cps		#0x1F ;@ system
+	mov 	r4, sp
+	mov		r5, lr
+	cps		#0x12 ;@ supervisor
+	bic		r6, sp, #0xFF0
+	bic		r6, r6, #0xF
+	add		r6,	r6,	#0x1C
+	stmda 	r6, {r4,r5}
 	bl 		interrupt_request_routine
 	ldmfd 	sp!, {r0-r12,pc}^
 

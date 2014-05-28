@@ -63,6 +63,7 @@ extern unsigned int exception_vector_table;
  */
 
 void ret_from_fork();
+void ret_from_clone();
 
 void reset_routine();
 void undefined_instruction_routine();

@@ -30,8 +30,56 @@ int sys_getpid() {
 	return current()->PID;
 }
 
-int sys_clone (void (*function)(void), void *stack) {
-	return 0;
+int sys_clone(void (*function)(void), void *stack, unsigned int last_sp) {
+	int PID;
+	unsigned int pos_sp = 0;
+
+	/* Obtenció d'una task_struct nova de la freequeue */
+	if (list_empty(&freequeue)) return -ENTASK;
+	struct list_head *new_list_pointer = list_first(&freequeue);
+	list_del(new_list_pointer);
+	struct task_struct * new_pcb = list_head_to_task_struct(new_list_pointer);
+	struct task_struct * current_pcb = current();
+	union task_union *new_stack = (union task_union*)new_pcb;
+
+	pos_sp = ((unsigned int)last_sp-(unsigned int)current_pcb)/4;
+
+
+	/* Copia del Stack, actualització del contador de punters del directori*/
+	copy_data(current_pcb, new_pcb, 4096);
+	*(new_pcb->dir_count) += 1;
+	*(new_pcb->pb_count) += 1;
+
+	PID = getNewPID();
+	new_pcb->PID = PID;
+
+	/* Construint l'enllaç dinàmic fent que el esp apunti al ebp guardat */
+	new_pcb->kernel_sp = (unsigned int)&new_stack->stack[pos_sp];
+	/* @ retorn estàndard: Restore ALL + iret */
+	new_pcb->kernel_lr = (unsigned int)&ret_from_fork;
+	new_pcb->user_sp = stack;
+	new_pcb->user_lr = function; // TODO fer anar a la exit()?
+
+	new_stack->stack[pos_sp+10] = (unsigned int)function;
+
+	/* Inicialització estadistica */
+	new_pcb->process_state = ST_READY;
+	new_pcb->statistics.tics = 0;
+	new_pcb->statistics.cs = 0;
+
+	/* Push to readyqueue to be scheduled */
+	sched_update_queues_state(&readyqueue,new_pcb);
+
+	return PID;
+
+}
+
+int sys_clone_wrapper(void (*function)(void), void *stack) {
+	int ret, current_sp = 0;
+	__asm__ __volatile__("mov %0, sp;" : "=r" (current_sp));
+	ret = sys_clone(function, stack, current_sp);
+	return ret;
+
 }
 
 int sys_DEBUG_tswitch() {
@@ -50,18 +98,8 @@ int sys_DEBUG_tswitch() {
 	return 0;
 }
 
-int sys_fork_wrapper() {
-	int current_sp = 0;
-	__asm__ __volatile__(
-			"mov %0, sp;"
-			: "=r" (current_sp)
-	);
-	return sys_fork(current_sp);
-}
-
 int sys_fork(unsigned int last_sp) {
 	int PID;
-	//int current_sp = 0;
 	unsigned int pos_sp = 0; // sp position relatively from the stack
 	int pag;
 	int new_ph_pag;
@@ -74,7 +112,6 @@ int sys_fork(unsigned int last_sp) {
 	struct task_struct * new_pcb = list_head_to_task_struct(new_list_pointer);
 	struct task_struct * current_pcb = current();
 	union task_union *new_stack = (union task_union*)new_pcb;
-
 
 
 	pos_sp = ((unsigned int)last_sp-(unsigned int)current_pcb)/4;
@@ -155,20 +192,27 @@ int sys_fork(unsigned int last_sp) {
 
 	/* Punt f i g */
 	// Construint l'enllaç dinamic fent que el esp apunti al ebp guardat
-	new_stack->task.kernel_sp = (unsigned int)&new_stack->stack[pos_sp]; // TODO fix, pos incorrecte
+	new_pcb->kernel_sp = (unsigned int)&new_stack->stack[pos_sp];
 	// Modificant la funció a on retornarà
-	new_stack->task.kernel_lr = &ret_from_fork;
+	new_pcb->kernel_lr = (unsigned int)&ret_from_fork;
+	new_pcb->user_sp = 0x11c000-0x4; // TODO set define
+	new_pcb->user_lr = current_pcb->user_lr;
 
 	/* Inicialització estadistica */
-	new_stack->task.process_state = ST_READY;
-	new_stack->task.statistics.tics = 0;
-	new_stack->task.statistics.cs = 0;
+	new_pcb->process_state = ST_READY;
+	new_pcb->statistics.tics = 0;
+	new_pcb->statistics.cs = 0;
 
-	/* Punt h */
+	/* Push to readyqueue to be scheduled */
 	sched_update_queues_state(&readyqueue,new_pcb);
 
-
 	return PID;
+}
+
+int sys_fork_wrapper() {
+	int current_sp = 0;
+	__asm__ __volatile__("mov %0, sp;" : "=r" (current_sp));
+	return sys_fork(current_sp);
 }
 
 void sys_exit() {

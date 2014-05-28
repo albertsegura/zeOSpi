@@ -35,7 +35,7 @@ inline void set_initial_stack(void) {
 int __attribute__((__section__(".text.main"))) main(void) {
 
 	set_initial_stack();
-	set_worlds_stacks();
+	set_worlds_stacks((unsigned int)INITAL_KERNEL_STACK);
 
 	/* Initialize hardware data */
 	setIdt(); /* Definicio del vector de interrupcions */

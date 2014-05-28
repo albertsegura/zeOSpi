@@ -151,32 +151,35 @@ void task_switch(union task_union *new, unsigned int last_sp) { // TODO
 	fl_page_table_entry * dir_new = get_DIR((struct task_struct *) new);
 	fl_page_table_entry * dir_current = get_DIR(current());
 
-	// if (dir_new != dir_current) set_cr3(dir_new);
+	if (dir_new != dir_current) mmu_change_dir(dir_new);
 
 	unsigned long *kernel_sp = &(current()->kernel_sp);
 	unsigned long *kernel_lr = &(current()->kernel_lr);
-	unsigned long new_kernel_sp = new->task.kernel_sp;
-	unsigned long new_kernel_lr = new->task.kernel_lr;
+	// Usr sp/lr copied when acceded to the kernel
 
 	__asm__ __volatile__ (
+			// save current kernel sp/lr
+			// user sp/lr saved when acceded to the kernel
 			"str 	%0, [%1];"
 			"str 	lr, [%2];"
+			// set new kernel sp/lr
 			"mov	sp, %3;"
 			"mov	lr, %4;"
-			"bx		lr;"
 			: /* no output */
 			: "r" (last_sp), "r" (kernel_sp), "r" (kernel_lr),
-			  "r" (new_kernel_sp), "r" (new_kernel_lr)
+			  "r" (new->task.kernel_sp), "r" (new->task.kernel_lr)
+	);
+	__asm__ __volatile__ (
+			// set new user sp/lr
+			"cps	#0x1F;" // system mode
+			"mov	sp, %0;"
+			"mov	lr, %1;"
+			"cps	#0x13;"	// supervisor mode
+			"bx		lr;"
+			: /* no output */
+			: "r" (new->task.user_sp),	"r" (new->task.user_lr)
 	);
 
-  //__asm__ __volatile__(
-  //		"mov %%ebp,(%0);" 	/*	Punt 3	*/
-  //		"mov %1,%%esp;" 		/*	Punt 4	*/
-  //		"pop %%ebp;"				/*	Punt 5	*/
-  //		"ret;"
-  //		: /* no output */
-  //		: "r" (kernel_sp), "r" (new_kernel_sp)
-  //);
 }
 
 int getNewPID() {

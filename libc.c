@@ -171,7 +171,7 @@ int clone (void (*function)(void), void *stack) {
 		"+r" (function),
 		"+r" (stack)
 		:"r" (3)
-		:"r0", "r1", "r7"
+		:"r0", "r1", "r2", "r3", "r7"
 	);
 	if (ret < 0) {
 		errno = -ret;
