@@ -8,9 +8,6 @@
 #include <types.h>
 #include <mm_address.h>
 #include <sched.h>
-#include <timer.h>
-#include <gpio.h>
-#include <io.h>
 
 #define FREE_FRAME 0
 #define USED_FRAME 1
@@ -46,8 +43,12 @@ unsigned int get_frame(sl_page_table_entry *PT, unsigned int page);
 
 void set_vitual_to_phsycial(unsigned int virtual, unsigned ph, char to_current_task);
 
+// Clone related function
 void allocate_page_dir (struct task_struct *p);
+// Heap related functions
+void init_pb();
 void get_newpb (struct task_struct *p);
+
 
 /* Temp */
 void test_mmu_funct(void);

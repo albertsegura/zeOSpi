@@ -1,6 +1,8 @@
 .settings/
 .cproject
 .project
+.gitignore
+.gdbinit
 *~
 *.o
 *.img

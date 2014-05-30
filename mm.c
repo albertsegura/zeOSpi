@@ -8,9 +8,11 @@
 #include <hardware.h>
 #include <sched.h>
 #include <utils.h>
+#include <timer.h>
+#include <gpio.h>
+#include <io.h>
 
 Byte phys_mem[TOTAL_PH_PAGES];
-
 
 /* PAGING */
 /* Variables containing the page directory and the page table */
@@ -30,6 +32,11 @@ __attribute__((__section__(".data.mmu_empty_ph_page")));
 /* Counters for the references to a same directory entry. */
 Byte assigned_base_dir[NR_TASKS];
 
+unsigned int program_breaks[NR_TASKS];
+
+/*Contador dels punters a un mateix program break*/
+Byte pb_counter[NR_TASKS];
+
 /***********************************************/
 /************** PAGING MANAGEMENT **************/
 /***********************************************/
@@ -45,6 +52,7 @@ void init_mm() {
 	init_empty_pages();
 	init_table_pages();
 	init_dir_pages();
+	init_pb();
 
 	/* 3. Disable and invalidate the Instruction Cache for the corresponding world. You can then
 	 * re-enable the Instruction Cache when you enable the MMU. */
@@ -125,7 +133,7 @@ void init_table_pages(void) {
             // Logical page equal to physical page (frame)
             sl_ptable[i][0][k].bits.pbase_addr = k;
 
-            sl_ptable[i][0][k].bits.xn = 0; // TODO check si es pot separar codi de data
+            sl_ptable[i][0][k].bits.xn = 0;
             sl_ptable[i][0][k].bits.setbit = 1;
             sl_ptable[i][0][k].bits.b = 0;
             sl_ptable[i][0][k].bits.c = 0;
@@ -169,6 +177,15 @@ void init_dir_pages(void) {
     }
 }
 
+void init_pb() {
+	int i;
+	for (i = 0; i< NR_TASKS; i++) {
+		program_breaks[i] = (0x100+USR_P_HEAPSTART)<<12;
+		pb_counter[i] = 0;
+	}
+}
+
+
 void test_mmu_funct(void) {
 	unsigned int mmu_en = 0;
 	unsigned int * pt;
@@ -194,7 +211,7 @@ void test_mmu_tlb_status(void) {
 	unsigned int volatile * pt;
 
 	aux = 0x30;
-	//dissable PD0/1 Page table walks
+	//disable PD0/1 Page table walks
 	__asm__ __volatile__ (
 		"MCR P15, 0,  %0,  c2, c0, 2;"
 		: "+r"(aux)
@@ -205,7 +222,7 @@ void test_mmu_tlb_status(void) {
 	sl_ptable[0][0][224].bits.pbase_addr = 0;
 	aux = get_value_from(0xE0000);
 
-	// Test invalidate caches
+
 
 	if (aux == 0xdeadbeef) {
 		printk("TLB OFF\n");
@@ -515,5 +532,16 @@ void allocate_page_dir (struct task_struct *p) {
 	assigned_base_dir[i] = 1;
 }
 
-
+void get_newpb (struct task_struct *p) {
+	int i;
+	char found = 0;
+	for (i=0; i<NR_TASKS && !found; ++i) {
+		found = (pb_counter[i] == 0);
+	}
+	--i;
+	p->program_break = &program_breaks[i];
+	p->pb_count = &pb_counter[i];
+	program_breaks[i] = (0x100+USR_P_HEAPSTART)<<12;
+	pb_counter[i] = 1;
+}
 

@@ -43,7 +43,6 @@ int strlen(char *a) {
 }
 
 
-/* Wrapper de la Syscall Write */
 int write (int fd, char *buffer, int size) {
 	int ret;
 	__asm__ volatile(
@@ -52,7 +51,7 @@ int write (int fd, char *buffer, int size) {
 		"mov %%r2, %3;"
 		"mov %%r7, %4;"
 		"svc 0x0;"
-		"mov %0, %%r0;"	// TODO fer per altres syscalls
+		"mov %0, %%r0;"	// TODO fer per altres syscalls (?)
 		:"=r" (ret), 				// %0, resultat a ret
 		"+r" (fd),					// %1, parameter 1
 		"+r" (buffer),				// %2, parameter 2
@@ -67,7 +66,6 @@ int write (int fd, char *buffer, int size) {
 	return ret;
 }
 
-/* Wrapper de la Syscall Gettime */
 unsigned int gettime() {
 	int ret;
 	__asm__ volatile(
@@ -80,7 +78,6 @@ unsigned int gettime() {
 	return ret;
 }
 
-/* Wrapper de la Syscall GetPid */
 int getpid(void) {
 	int ret;
 	__asm__ volatile(
@@ -93,7 +90,6 @@ int getpid(void) {
 	return ret;
 }
 
-/* Wrapper de la Syscall Fork */
 int fork() {
 	int ret;
 	__asm__ volatile(
@@ -110,7 +106,6 @@ int fork() {
 	return ret;
 }
 
-/* Wrapper de la Syscall de Debug sys_DEBUG_tswitch */
 int debug_task_switch() {
 	int ret;
 	__asm__ volatile(
@@ -123,7 +118,6 @@ int debug_task_switch() {
 	return ret;
 }
 
-/* Wrapper de la Syscall Exit */
 void exit() {
 	__asm__ volatile(
 		"mov %%r7, %0;"
@@ -134,7 +128,6 @@ void exit() {
 	);
 }
 
-/* Wrapper de la Syscall get_stats */
 int get_stats(int pid, struct stats *st) {
 	int ret;
 	__asm__ volatile(
@@ -155,12 +148,7 @@ int get_stats(int pid, struct stats *st) {
 	return ret;
 }
 
-/* Wrapper de la Syscall clone */
 int clone (void (*function)(void), void *stack) {
-/*	function: starting address of the function to be executed by the new process
- * stack : starting address of a memory region to be used as a stack
- * returns: -1 if error or the pid of the new lightweight process ID if OK
- */
 	int ret;
 	__asm__ volatile(
 		"mov %%r0, %1;"
@@ -181,7 +169,6 @@ int clone (void (*function)(void), void *stack) {
 }
 
 
-/* Wrapper de la Syscall Read */
 int read (int fd, char *buffer, int size) {
 	int ret;
 	__asm__ volatile(
@@ -204,6 +191,6 @@ int read (int fd, char *buffer, int size) {
 	return ret;
 }
 
-// TODO sem & sbrk syscalls
+// TODO sem & sbrk syscalls & exit & led
 
 

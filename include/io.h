@@ -6,7 +6,6 @@
 #define __IO_H__
 
 #include <types.h>
-#include <uart.h>
 
 void printc(char c);
 void printk(char *string);

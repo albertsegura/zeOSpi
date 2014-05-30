@@ -5,14 +5,12 @@
 #include <sched.h>
 #include <mm.h>
 #include <io.h>
-//#include <sem.h>
+#include <sem.h>
 #include <system.h>
 
 union task_union task[NR_TASKS] __attribute__((__section__(".data.task")));
 
 int lastPID;
-
-extern struct list_head blocked;
 
 struct list_head freequeue;
 
@@ -24,7 +22,6 @@ struct task_struct * idle_task;
 
 unsigned int rr_quantum;
 
-// TODO revisar get_DIR/PT
 /* get_DIR - Returns the Page Directory address for task 't' */
 fl_page_table_entry * get_DIR (struct task_struct *t)
 {
@@ -91,7 +88,7 @@ void init_keyboardqueue (void) {
 	INIT_LIST_HEAD(&keyboardqueue);
 }
 
-/* TODO add when sem
+
 void init_semarray(void) {
 	int i;
 	for(i=0;i<SEM_SIZE;++i)	{
@@ -99,7 +96,7 @@ void init_semarray(void) {
 		sem_array[i].pid_owner = -1;
 		sem_array[i].value = 0;
 	}
-}*/
+}
 
 void init_idle (void) {
 	struct list_head *idle_list_pointer = list_first(&freequeue);
@@ -133,13 +130,13 @@ void init_task1(void) {
 	set_user_pages(task1_task_struct);
 	mmu_change_dir(dir_task1);
 
-	// TODO sbrk //get_newpb(task1_task_struct);
+	get_newpb(task1_task_struct);
 
 	// Inicialitzacio estadistica
 	task1_task_struct->statistics.cs = 0;
 	task1_task_struct->statistics.tics = 0;
 	task1_task_struct->statistics.remaining_quantum = DEFAULT_RR_QUANTUM;
-	task1_task_struct->process_state = ST_READY; // TODO ready or run ?
+	task1_task_struct->process_state = ST_RUN;
 }
 
 
@@ -147,37 +144,32 @@ void init_sched(){
 	init_Sched_RR();
 }
 
-void task_switch(union task_union *new, unsigned int last_sp) { // TODO
+void task_switch(union task_union *new, unsigned int last_sp) {
+	unsigned int last_lr;
+	__asm__ __volatile__ ("mov %0, lr" : "=r"(last_lr));
+	struct task_struct * current_pcb = current();
 	fl_page_table_entry * dir_new = get_DIR((struct task_struct *) new);
-	fl_page_table_entry * dir_current = get_DIR(current());
+	fl_page_table_entry * dir_current = get_DIR(current_pcb);
 
 	if (dir_new != dir_current) mmu_change_dir(dir_new);
 
-	unsigned long *kernel_sp = &(current()->kernel_sp);
-	unsigned long *kernel_lr = &(current()->kernel_lr);
+	current_pcb->kernel_sp = last_sp;
+	current_pcb->kernel_lr = last_lr;
 	// Usr sp/lr copied when acceded to the kernel
 
 	__asm__ __volatile__ (
-			// save current kernel sp/lr
-			// user sp/lr saved when acceded to the kernel
-			"str 	%0, [%1];"
-			"str 	lr, [%2];"
 			// set new kernel sp/lr
-			"mov	sp, %3;"
-			"mov	lr, %4;"
-			: /* no output */
-			: "r" (last_sp), "r" (kernel_sp), "r" (kernel_lr),
-			  "r" (new->task.kernel_sp), "r" (new->task.kernel_lr)
-	);
-	__asm__ __volatile__ (
-			// set new user sp/lr
-			"cps	#0x1F;" // system mode
 			"mov	sp, %0;"
 			"mov	lr, %1;"
+			// set new user sp/lr
+			"cps	#0x1F;" // system mode
+			"mov	sp, %2;"
+			"mov	lr, %3;"
 			"cps	#0x13;"	// supervisor mode
 			"bx		lr;"
 			: /* no output */
-			: "r" (new->task.user_sp),	"r" (new->task.user_lr)
+			: "r" (new->task.kernel_sp), "r" (new->task.kernel_lr),
+			  "r" (new->task.user_sp),	 "r" (new->task.user_lr)
 	);
 
 }
@@ -231,7 +223,12 @@ void sched_switch_process_RR() {
 	struct list_head *task_list;
 	struct task_struct * task;
 
-	if (!list_empty(&readyqueue)) {
+	if (!circularbIsEmpty(&uart_read_buffer) && !list_empty(&keyboardqueue)) {
+		task_list = list_first(&keyboardqueue);
+		list_del(task_list);
+		task = list_head_to_task_struct(task_list);
+	}
+	else if (!list_empty(&readyqueue)) {
 		task_list = list_first(&readyqueue);
 		list_del(task_list);
 		task = list_head_to_task_struct(task_list);
@@ -250,11 +247,14 @@ void sched_switch_process_RR() {
 	}
 }
 
-void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task) {
+void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task, int insert_head) {
 	if (ls == &freequeue) task->process_state = ST_ZOMBIE;
 	else if (ls == &readyqueue) task->process_state = ST_READY;
 	else if (ls == &keyboardqueue) task->process_state = ST_BLOCKED;
 	else task->process_state = ST_BLOCKED;
 
-	if (task != idle_task) list_add_tail(&task->list,ls);
+	if (task != idle_task) {
+		if (insert_head) list_add(&task->list,ls);
+		else list_add_tail(&task->list,ls);
+	}
 }

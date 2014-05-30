@@ -7,9 +7,9 @@
 
 #include <types.h>
 #include <utils.h>
-#include <mm.h>
 
-#define TIMER_BASE_PH	0x2000B000 // TODO revisar
+
+#define TIMER_BASE_PH	0x2000B000
 #define TIMER_BASE		0xF3000	/* ph 0x2000B000 */
 
 #define TIMER_LOAD			(TIMER_BASE+0x400)

@@ -1,6 +1,7 @@
 #include <asm.h>
 #include <segment.h>
 
+
 ;@ Exceptions Table
 ENTRY(exception_vector_table)
 	ldr		pc,	[pc, #0x18]
@@ -29,6 +30,7 @@ ENTRY(exception_vector_table)
 .extern interrupt_request_routine
 .extern fast_interrupt_request_routine
 
+
 ENTRY_UA(software_interrupt_routine) ;@ Syscall routine
 	push    {lr}
 	ldr     r4, =sys_call_table
@@ -40,6 +42,7 @@ ENTRY_UA(ret_from_fork)
 	pop     {r0}	;@ pop the swi routine stacked registers
 	mov		r0,	#0
 	ldmfd 	sp!, {r4-r12,pc}^
+
 
 ;@ Exception handlers
 ENTRY_UA(reset_handler)

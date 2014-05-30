@@ -1,14 +1,15 @@
 /*
  * interrupt.c -
  */
-#include <types.h>
-#include <interrupt.h>
-#include <segment.h>
-#include <hardware.h>
-#include <io.h>
-#include <uart.h>
-#include <timer.h>
 
+#include <devices.h>
+#include <hardware.h>
+#include <interrupt.h>
+#include <io.h>
+#include <sched.h>
+#include <segment.h>
+#include <timer.h>
+#include <uart.h>
 
 /*char char_map[] =
 {
@@ -73,21 +74,22 @@ void interrupt_request_routine() {
 	if (get_value_from(IRQ_PEND_B)&0b1) { // TIMER
 		timer_clear_irq();
 		clock_increase();
-
+/* TODO
 		sched_update_data();
 		if (sched_change_needed()) {
 			sched_update_queues_state(&readyqueue, current());
 			sched_switch_process();
-		}
+		}*/
 	}
 	else if (get_value_from(IRQ_PEND_1)&(1<<29)) { // AUX_UART
-		Byte data;
 		if (uart_interrupt_pend()) {
 			if (uart_interrupt_pend_rx()) {
+// TODO
+				//interrupt_uart_routine();
+				/* Byte data;
 				data = uart_get_byte();
-				// TODO change to fill buffer
 				printc(data);
-				printc('\n'); printc(13);
+				printc('\n'); printc(13);*/
 			}
 		}
 	}
@@ -97,24 +99,18 @@ void fast_interrupt_request_routine() {
 	while(1);
 }
 
-void setIdt() {
- 	/* EXCEPTIONS */
+void set_exception_base() {
 	unsigned int base = ((unsigned int)&exception_vector_table);
 	__asm__ __volatile__ ("MCR P15, 0,  %0,  c12, c0, 0;" :	: "r" (base));
-
-	/* INTERRUPTIONS */
-	// Handlers set at compiling time.
 }
-
 
 
 void enable_int(void) {
 	set_vitual_to_phsycial(IRQ_BASE,IRQ_BASE_PH,0);
 
-	enable_interrupt_peripheral(IRQ_PHPL_AUX);	// AUX_UART
+	enable_interrupt_peripheral(IRQ_PHPL_AUX);
 	enable_interrupt_peripheral(IRQ_PHPL_TIMER);
 
-	// TODO enable for more worlds ?
 	cpsr reg;
 	reg.entry = read_cpsr();
 	reg.bits.dI = 0;

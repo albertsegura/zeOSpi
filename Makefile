@@ -25,8 +25,6 @@ LINKFLAGS = -g
 
 SYSOBJ = interrupt.o entry.o sys_call_table.o interrupt_asm.o io.o uart.o gpio.o timer.o sched.o sys.o mm.o devices.o utils.o hardware.o errno.o
 
-LIBZEOS = #-L . -l zeos
-
 #add to USROBJ the object files required to complete the user program
 USROBJ = libc.o perror.o errno.o
 
@@ -77,7 +75,7 @@ errno.o:errno.c $(INCLUDEDIR)/errno.h
 
 mm.o:mm.c $(INCLUDEDIR)/types.h $(INCLUDEDIR)/mm.h
 
-sys.o:sys.c $(INCLUDEDIR)/devices.h
+sys.o:sys.c $(INCLUDEDIR)/devices.h 
 
 utils.o:utils.c $(INCLUDEDIR)/utils.h
 
@@ -86,7 +84,7 @@ system.o:system.c $(INCLUDEDIR)/hardware.h system.lds $(SYSOBJ) $(INCLUDEDIR)/se
 
 
 system: system.o system.lds $(SYSOBJ)
-	$(LD) $< $(SYSOBJ) $(LINKFLAGS) $(SYSLDFLAGS) -o $@  $(LIBZEOS) 
+	$(LD) $< $(SYSOBJ) $(LINKFLAGS) $(SYSLDFLAGS) -o $@
 
 user: user.o user.lds $(USROBJ) 
 	$(LD) $< $(USROBJ) $(LINKFLAGS) $(USRLDFLAGS) -o $@ 

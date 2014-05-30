@@ -6,9 +6,10 @@
 #define __SCHED_H__
 
 #include <list.h>
-#include <types.h>
 #include <mm_address.h>
 #include <stats.h>
+#include <types.h>
+
 
 #define NR_TASKS      10
 #define KERNEL_STACK_SIZE	1024
@@ -27,10 +28,10 @@ struct task_struct {
 	int PID;			/* Process ID */
 	fl_page_table_entry * dir_pages_baseAddr;
 	struct list_head list;
-	unsigned long kernel_sp;
-	unsigned long kernel_lr;
-	unsigned long user_sp;
-	unsigned long user_lr;
+	unsigned int kernel_sp;
+	unsigned int kernel_lr;
+	unsigned int user_sp;
+	unsigned int user_lr;
 
 	struct stats statistics;
 	enum state_t process_state;
@@ -59,9 +60,6 @@ extern struct list_head keyboardqueue;
 extern struct task_struct * idle_task;
 extern unsigned int rr_quantum;
 extern int lastPID;
-
-// TODO change
-#define KERNEL_ESP       (DWord) &task[1].stack[KERNEL_STACK_SIZE]
 
 void init_task1(void);
 
@@ -92,9 +90,7 @@ sl_page_table_entry * get_PT (struct task_struct *t, unsigned char dir_entry) ;
 fl_page_table_entry * get_DIR (struct task_struct *t) ;
 
 
-
 /* SCHEDULER */
-
 
 /* Update policy data (update tics in the case of a round robin, update priorities, etc.).
  * There can be a generic function that calls one or another function based on a global
@@ -108,7 +104,7 @@ int (* sched_change_needed)();
 void (* sched_switch_process)();
 
 /* Update queues and state of processes.*/
-void (* sched_update_queues_state)(struct list_head* ls, struct task_struct * task);
+void (* sched_update_queues_state)(struct list_head* ls, struct task_struct * task, int insert_head);
 
 /* Inicialització de la politica de scheduler Round Robin */
 void init_Sched_RR();
@@ -119,9 +115,7 @@ int sched_change_needed_RR();
 
 void sched_switch_process_RR();
 
-void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task);
-
-
+void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task, int insert_head);
 
 
 #endif  /* __SCHED_H__ */

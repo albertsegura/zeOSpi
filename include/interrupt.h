@@ -6,9 +6,6 @@
 #define __INTERRUPT_H__
 
 #include <types.h>
-#include <sched.h>
-
-void setIdt();
 
 #define IRQ_BASE_PH		0x2000B000
 #define IRQ_BASE		0xF1000	/* ph 0x2000B000 */
@@ -72,6 +69,7 @@ void data_abort_routine();
 void interrupt_request_routine();
 void fast_interrupt_request_routine();
 
+void set_exception_base(void);
 void enable_int(void);
 
 

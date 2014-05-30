@@ -22,17 +22,23 @@ void cloneHello() {
 }
 
 int __attribute__ ((__section__(".text.main"))) main(void) {
-	//pid = fork();
-	clone(cloneHello, &stack[1024]);
-	debug_task_switch();
+	/*pid = fork();
+	//clone(cloneHello, &stack[1024]);
+	//debug_task_switch();
 	if (pid == 0) { // fill
-
+		debug_task_switch();
 	}
 	else {
 		debug_task_switch();
 	}
-	while(1);
+	while(1);*/
 
+	while(1) {
+		char aux;
+		read(0,&aux,1);
+		write(1,&aux,1);
+	}
+	/*
 
 	unsigned int old_time, tmp;
 	write (1, buff, strlen(buff));
@@ -48,9 +54,9 @@ int __attribute__ ((__section__(".text.main"))) main(void) {
 			write(1,"\n",1);
 		}
 	}
+	 */
 
 	while(1) { }
-
 
 	return 0;
 }

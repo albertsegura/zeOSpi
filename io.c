@@ -3,6 +3,7 @@
  */
 
 #include <io.h>
+#include <uart.h>
 
 void printc(char c) {
 	uart_send_byte(c);
@@ -10,8 +11,7 @@ void printc(char c) {
 
 void printk(char *string) {
   int i;
-  for (i = 0; string[i]; i++)
-    printc(string[i]);
+  for (i = 0; string[i]; i++) printc(string[i]);
 }
 
 void printint(unsigned int num) {

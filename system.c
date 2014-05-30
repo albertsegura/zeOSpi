@@ -2,22 +2,23 @@
  * system.c - 
  */
 
-#include <segment.h>
-#include <types.h>
-#include <interrupt.h>
 #include <hardware.h>
-#include <system.h>
-#include <sched.h>
-#include <mm.h>
+#include <interrupt.h>
 #include <io.h>
-#include <utils.h>
-#include <uart.h>
+#include <mm.h>
+#include <segment.h>
+#include <sched.h>
+#include <system.h>
 #include <timer.h>
-//#include <sem.h> TODO include
+#include <uart.h>
+#include <utils.h>
 
 int (*usr_main)(void) = (void *) PH_USER_START;
+char uart_read_buff_arr[UART_READ_BUFFER_SIZE];
+Circular_Buffer uart_read_buffer;
+Sem sem_array[SEM_SIZE];
 
-// Pointers to the size of the system and user blocks specified at build/link time
+/* Pointers to the size of the system and user blocks specified at build/link time */
 const unsigned int *p_sys_size = (unsigned int *) KERNEL_START+1;
 const unsigned int *p_usr_size = (unsigned int *) KERNEL_START+2;
 
@@ -33,46 +34,32 @@ inline void set_initial_stack(void) {
 
 /* Main entry point to ZEOS Operative System */
 int __attribute__((__section__(".text.main"))) main(void) {
-
 	set_initial_stack();
 	set_worlds_stacks((unsigned int)INITAL_KERNEL_STACK);
 
-	/* Initialize hardware data */
-	setIdt(); /* Definicio del vector de interrupcions */
-
-	//__asm__ __volatile__ (
-	//	"mov %r7, #4;"
-	//	"svc 0x0;"
-	//);
+	set_exception_base();
 
 	/* Initialize Memory */
 	init_mm();
 
 	//test_mmu_funct();
 
-	//while(1);
-
-	// Initialize Task queues
+	/* Initialize Queues&Semaphores */
 	init_freequeue();
 	init_readyqueue();
 	init_keyboardqueue();
-	//init_semarray();
+	init_semarray();
 
 	/* Initialize Raspberry Pi Peripherals */
 	init_gpio();
 	init_uart();
 	init_timer();
 
-	//printk("Kernel Loaded!\n");
+	printk("Kernel Loaded!\n");
 
 	//test_mmu_tlb_status();
 
-	/* Initialize an address space to be used for the monoproces version of ZeOS */
-
-	//monoprocess_init_addr_space(); /* TO BE DELETED WHEN ADDED THE PROCESS MANAGEMENT CODE TO BECOME MULTIPROCESS */
-
 	init_sched();
-
 	init_idle();
 	init_task1();
 
@@ -81,7 +68,7 @@ int __attribute__((__section__(".text.main"))) main(void) {
 
 	//printk("Entering user mode...\n");
 
-	//circularbInit(&cbuffer,cbuff, CBUFFER_SIZE);
+	circularbInit(&uart_read_buffer,uart_read_buff_arr, UART_READ_BUFFER_SIZE);
 
 	enable_int();
 /*
@@ -94,7 +81,7 @@ int __attribute__((__section__(".text.main"))) main(void) {
 		}
 	}
 */
-	return_gate(USER_ESP, L_USER_START); // TODO canviar el nom de ESP
+	return_gate(USER_SP, L_USER_START);
 
 	/* The execution never arrives to this point */
 	return 0;

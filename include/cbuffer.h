@@ -6,7 +6,6 @@ typedef struct {
 		char *buffer;
 }Circular_Buffer;
 
-
 static inline void circularbInit(Circular_Buffer* cb, char *buf, int size) {
 	cb->buffer = buf;
 	cb->start = 0;
@@ -21,7 +20,9 @@ static inline void circularbFree(Circular_Buffer *cb) {
 }
 
 static inline int circularbIsFull(Circular_Buffer *cb) {
-	return (cb->end + 1)%cb->size == cb->start;
+	int aux = cb->end;
+	aux =((aux+1) >= cb->size) ? (aux+1)-cb->size : aux + 1; // mod op
+	return aux == cb->start;
 }
 
 static inline int circularbNumElements(Circular_Buffer *cb) {
@@ -35,16 +36,18 @@ static inline int circularbIsEmpty(Circular_Buffer *cb) {
 static inline int circularbWrite(Circular_Buffer *cb, char *element) {
 	if (circularbIsFull(cb)) return -1;
 	else {
-		cb->buffer[cb->end] = *element;
-		cb->end = (cb->end + 1)%cb->size;
+		int aux = cb->end;
+		cb->buffer[aux] = *element;
+		cb->end = (aux+1 >= cb->size) ? (aux+1)-cb->size : aux+1; // mod op
 		cb->numelem++;
 		return 0;
 	}
 }
 
 static inline void circularbRead(Circular_Buffer *cb, char *element) {
+	int aux = cb->start;
 	*element = cb->buffer[cb->start];
-	cb->start = (cb->start + 1) % cb->size;
+	cb->start = (aux+1 >= cb->size) ? (aux+1)-cb->size : aux+1; // mod op
 	cb->numelem--;
 }
 

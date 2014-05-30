@@ -64,7 +64,6 @@ int copy_to_user(void *start, void *dest, int size)
  */
 int access_ok(int type, const void * addr, unsigned long size)
 {
-	// TODO CHECK
   unsigned long addr_ini, addr_fin;
   
   addr_ini=(((unsigned long)addr)>>12);
