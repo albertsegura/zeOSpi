@@ -70,7 +70,7 @@ void interrupt_request_routine();
 void fast_interrupt_request_routine();
 
 void set_exception_base(void);
-void enable_int(void);
+void set_interruptions(void);
 
 
 #endif  /* __INTERRUPT_H__ */

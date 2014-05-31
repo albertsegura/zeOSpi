@@ -52,35 +52,33 @@ int __attribute__((__section__(".text.main"))) main(void) {
 
 	/* Initialize Raspberry Pi Peripherals */
 	init_gpio();
+	gpio_set_led_on(); // TODO test
 	init_uart();
 	init_timer();
 
+
+	/*while (1) {
+		uart_send_byte('a');
+	}*/
 	printk("Kernel Loaded!\n");
 
+	//while(1) ;
 	//test_mmu_tlb_status();
 
 	init_sched();
 	init_idle();
 	init_task1();
 
+	circularbInit(&uart_read_buffer,uart_read_buff_arr, UART_READ_BUFFER_SIZE);
+
+	set_interruptions();
+
 	/* Move user code/data now (after the page table initialization) */
 	copy_data((void *) KERNEL_START + *p_sys_size, usr_main, *p_usr_size);
 
-	//printk("Entering user mode...\n");
+	printk("Entering user mode...\n");
 
-	circularbInit(&uart_read_buffer,uart_read_buff_arr, UART_READ_BUFFER_SIZE);
-
-	enable_int();
-/*
-	unsigned int old_time = clock_get_time();
-	while(1) {
-		if (old_time != clock_get_time()) {
-			old_time = clock_get_time();
-			printint(old_time);
-			printc('\n'); printc(13);
-		}
-	}
-*/
+	/* Jumps to usr space & enables interrupts */
 	return_gate(USER_SP, L_USER_START);
 
 	/* The execution never arrives to this point */

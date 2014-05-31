@@ -22,7 +22,10 @@ void interrupt_uart_routine() {
 	if (circularbIsFull(&uart_read_buffer)) circularbRead(&uart_read_buffer, &aux);
 	circularbWrite(&uart_read_buffer,&data);
 
-	// TODO aqui hi havia codi de gestió mes avançat
+	// TODO debug
+	printc(data);
+	printint(circularbNumElements(&uart_read_buffer));
+	printc('\n'); printc(13);
 }
 
 
@@ -36,7 +39,7 @@ int sys_read_uart(char *buffer, int size) {
 	current_pcb->kbinfo.keysread = 0;
 
 	if (!list_empty(&keyboardqueue)) {
-		sched_update_queues_state(&keyboardqueue,current(),0);
+		sched_update_queues_state(&keyboardqueue,current());
 		sched_switch_process();
 	}
 
@@ -54,7 +57,7 @@ int sys_read_uart(char *buffer, int size) {
 
 		if (current_pcb->kbinfo.keystoread > 0){
 			// Insert in the front of the queue
-			sched_update_queues_state(&keyboardqueue,current(),1);
+			sched_update_queues_state(&keyboardqueue,current());
 			sched_switch_process();
 		}
 	}

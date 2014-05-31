@@ -13,7 +13,7 @@
 
 #define NR_TASKS      10
 #define KERNEL_STACK_SIZE	1024
-#define DEFAULT_RR_QUANTUM	100
+#define DEFAULT_RR_QUANTUM	1000
 #define INITAL_KERNEL_STACK &task[1].stack[KERNEL_STACK_SIZE-1]
 
 enum state_t { ST_RUN, ST_READY, ST_BLOCKED, ST_ZOMBIE };
@@ -104,7 +104,7 @@ int (* sched_change_needed)();
 void (* sched_switch_process)();
 
 /* Update queues and state of processes.*/
-void (* sched_update_queues_state)(struct list_head* ls, struct task_struct * task, int insert_head);
+void (* sched_update_queues_state)(struct list_head* ls, struct task_struct * task);
 
 /* Inicialització de la politica de scheduler Round Robin */
 void init_Sched_RR();
@@ -115,7 +115,7 @@ int sched_change_needed_RR();
 
 void sched_switch_process_RR();
 
-void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task, int insert_head);
+void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task);
 
 
 #endif  /* __SCHED_H__ */

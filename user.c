@@ -21,23 +21,42 @@ void cloneHello() {
 	while(1);
 }
 
+
+/*
+	unsigned int old_time = clock_get_time();
+	while(1) {
+		if (old_time != clock_get_time()) {
+			old_time = clock_get_time();
+			printint(old_time);
+			printc('\n'); printc(13);
+		}
+	}
+*/
+
+
 int __attribute__ ((__section__(".text.main"))) main(void) {
-	/*pid = fork();
+	char aux = 'a';
+	pid = fork();
 	//clone(cloneHello, &stack[1024]);
 	//debug_task_switch();
 	if (pid == 0) { // fill
-		debug_task_switch();
+		buff[0] = 'f';
+		//debug_task_switch();
+
 	}
 	else {
-		debug_task_switch();
+		buff[0] = 'p';
+		//debug_task_switch();
 	}
-	while(1);*/
+	//while(1);
 
 	while(1) {
-		char aux;
-		read(0,&aux,1);
-		write(1,&aux,1);
+
+		//read(0,&aux,1);
+		write(1,&buff[0],1);
+		//debug_task_switch();
 	}
+
 	/*
 
 	unsigned int old_time, tmp;

@@ -56,8 +56,8 @@ void init_mm() {
 
 	/* 3. Disable and invalidate the Instruction Cache for the corresponding world. You can then
 	 * re-enable the Instruction Cache when you enable the MMU. */
-	//invalidate_icache();
-	//disable_icache();
+	invalidate_icache();
+	disable_icache();
 
 	__asm__ __volatile__ (
 		"MCR P15, 0,  %0,  c7, c7, 0;" // invalidate both caches
@@ -154,7 +154,7 @@ void init_dir_pages(void) {
 
     for (i = 0; i < NR_TASKS; i++) {
     	assigned_base_dir[i] = 0;
-    	//task[i].task.dir_pages_baseAddr = (fl_page_table_entry *)&fl_ptable[i][0];
+    	// task[i].task.dir_pages_baseAddr = (fl_page_table_entry *)&fl_ptable[i][0];
 
     	for (j=0; j < NUM_DIR_ENTRIES; j++) {
 			fl_ptable[i][j].entry = 0;
@@ -249,7 +249,7 @@ void set_coprocessor_reg_MMU(void) {
 
 		//"MCR P15, 0,  %8,  c6, c0, 2;"	// Inst Fault address register, Produce status of error
 		//"MCR P15, 0,  %9,  c8, c5, 0;"	// TLB instruction reg, Used to invalidate TLB
-		"MCR P15, 0,  %5, c10, c0, 0;"	// TLB lockdown reg // O for the moment
+		"MCR P15, 0,  %5, c10, c0, 0;"	// TLB lockdown reg
 		"MCR P15, 0,  %6, c10, c2, 0;"	// Primary region
 		"MCR P15, 0,  %7, c10, c2, 1;"	// Normal Memory
 
@@ -262,7 +262,7 @@ void set_coprocessor_reg_MMU(void) {
 		"MCR P15, 5, %13, c15, c6, 2;" 	// TLB lockdown access
 		"MCR P15, 5, %14, c15, c7, 2;"	// TLB lockdown access
 		: /* no output */				// TODO valor anterior de TTBC=0
-		: "r"(0), "r"(ttb), "r"(ttb), "r"(0x30), \
+		: "r"(0), "r"(ttb), "r"(ttb), "r"(0), \
 		  "r"(0xFFFFFFFF), "r"(0), "r"(0x98AA4), "r"(0x44E048E0), \
 		  "r"(0), "r"(0), "r"(0), "r"(0), \
 		  "r"(0), "r"(0), "r"(0)
@@ -423,6 +423,14 @@ void set_vitual_to_phsycial(unsigned int virtual, unsigned ph, char to_current_t
 			sl_ptable[i][dir][page].bits.pbase_addr = (ph>>12);
 		}
 	}
+    asm volatile ("mcr p15, 0, %0, c7, c5,  4" :: "r" (0) : "memory");
+    asm volatile ("mcr p15, 0, %0, c7, c6,  0" :: "r" (0) : "memory");
+	__asm__ __volatile__ (
+			"MCR P15, 0,  %0,  c7, c7, 0;" // invalidate both caches
+			"MCR P15, 0,  %0,  c8, c7, 0;" // invalidate tlb
+			:
+			: "r" (0)
+	);
 }
 
 void mmu_change_dir (fl_page_table_entry * dir) {
@@ -433,6 +441,12 @@ void mmu_change_dir (fl_page_table_entry * dir) {
 			: "r"(dir)
 	);
 	// TODO invalidate tlb
+	__asm__ __volatile__ (
+//			"MCR P15, 0,  %0,  c7, c7, 0;" // invalidate both caches
+			"MCR P15, 0,  %0,  c8, c7, 0;" // invalidate tlb
+			:
+			: "r" (0)
+	);
 }
 
 

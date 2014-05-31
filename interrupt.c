@@ -71,21 +71,25 @@ void data_abort_routine() {
 }
 
 void interrupt_request_routine() {
+
 	if (get_value_from(IRQ_PEND_B)&0b1) { // TIMER
+
 		timer_clear_irq();
 		clock_increase();
-/* TODO
+		printint(clock_get_time());
+
+		printc('\n'); printc(13);
 		sched_update_data();
 		if (sched_change_needed()) {
+			printc('i');
 			sched_update_queues_state(&readyqueue, current());
 			sched_switch_process();
-		}*/
+		}
 	}
 	else if (get_value_from(IRQ_PEND_1)&(1<<29)) { // AUX_UART
 		if (uart_interrupt_pend()) {
 			if (uart_interrupt_pend_rx()) {
-// TODO
-				//interrupt_uart_routine();
+				interrupt_uart_routine();
 				/* Byte data;
 				data = uart_get_byte();
 				printc(data);
@@ -105,15 +109,11 @@ void set_exception_base() {
 }
 
 
-void enable_int(void) {
+void set_interruptions(void) {
 	set_vitual_to_phsycial(IRQ_BASE,IRQ_BASE_PH,0);
 
 	enable_interrupt_peripheral(IRQ_PHPL_AUX);
 	enable_interrupt_peripheral(IRQ_PHPL_TIMER);
 
-	cpsr reg;
-	reg.entry = read_cpsr();
-	reg.bits.dI = 0;
-	write_cpsr(reg);
 }
 

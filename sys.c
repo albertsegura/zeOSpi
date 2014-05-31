@@ -72,7 +72,7 @@ int sys_clone(void (*function)(void), void *stack, unsigned int last_sp) {
 	new_pcb->statistics.cs = 0;
 
 	/* Push to readyqueue to be scheduled */
-	sched_update_queues_state(&readyqueue,new_pcb,0);
+	sched_update_queues_state(&readyqueue,new_pcb);
 
 	return PID;
 
@@ -88,7 +88,7 @@ int sys_clone_wrapper(void (*function)(void), void *stack) {
 
 int sys_DEBUG_tswitch() {
 
-	sched_update_queues_state(&readyqueue,current(),0);
+	sched_update_queues_state(&readyqueue,current());
 	sched_switch_process();
 
 	return 0;
@@ -242,7 +242,7 @@ int sys_fork(unsigned int last_sp) {
 	new_pcb->statistics.cs = 0;
 
 	/* Push to readyqueue to be scheduled */
-	sched_update_queues_state(&readyqueue,new_pcb,0);
+	sched_update_queues_state(&readyqueue,new_pcb);
 
 	return PID;
 }
@@ -269,7 +269,7 @@ void sys_exit() {
 	*(current_pcb->pb_count) -= 1;
 
 	/* Punt b */
-	sched_update_queues_state(&freequeue,current(),0);
+	sched_update_queues_state(&freequeue,current());
 	sched_switch_process();
 }
 
@@ -350,7 +350,7 @@ int sys_sem_wait(int n_sem) {
 	if (n_sem < 0 || n_sem >= SEM_SIZE) return -EINVSN;
 	if (sem_array[n_sem].pid_owner == -1) return -ENINIT;
 	if (sem_array[n_sem].value <= 0) {
-		sched_update_queues_state(&sem_array[n_sem].semqueue,current(),0);
+		sched_update_queues_state(&sem_array[n_sem].semqueue,current());
 		sched_switch_process();
 	}
 	else sem_array[n_sem].value--;
@@ -372,7 +372,7 @@ int sys_sem_signal(int n_sem) {
 		struct list_head *task_list = list_first(&sem_array[n_sem].semqueue);
 		list_del(task_list);
 		struct task_struct * semtask = list_head_to_task_struct(task_list);
-		sched_update_queues_state(&readyqueue,semtask,0);
+		sched_update_queues_state(&readyqueue,semtask);
 	}
 
 	return ret;
@@ -389,7 +389,7 @@ int sys_sem_destroy(int n_sem) {
 			struct list_head *task_list = list_first(&sem_array[n_sem].semqueue);
 			list_del(task_list);
 			struct task_struct * semtask = list_head_to_task_struct(task_list);
-			sched_update_queues_state(&readyqueue,semtask,0);
+			sched_update_queues_state(&readyqueue,semtask);
 		}
 	}
 	else ret = -ESNOWN;

@@ -6,6 +6,7 @@
 #include <mm.h>
 #include <io.h>
 #include <sem.h>
+#include <hardware.h>
 #include <system.h>
 
 union task_union task[NR_TASKS] __attribute__((__section__(".data.task")));
@@ -157,15 +158,17 @@ void task_switch(union task_union *new, unsigned int last_sp) {
 	current_pcb->kernel_lr = last_lr;
 	// Usr sp/lr copied when acceded to the kernel
 
+	set_worlds_stacks((unsigned int)&new->stack[KERNEL_STACK_SIZE-1]);
+
 	__asm__ __volatile__ (
 			// set new kernel sp/lr
 			"mov	sp, %0;"
 			"mov	lr, %1;"
 			// set new user sp/lr
-			"cps	#0x1F;" // system mode
+			"cps	#0x1F;" // SYS mode
 			"mov	sp, %2;"
 			"mov	lr, %3;"
-			"cps	#0x13;"	// supervisor mode
+			"cps	#0x13;"	// SVC mode
 			"bx		lr;"
 			: /* no output */
 			: "r" (new->task.kernel_sp), "r" (new->task.kernel_lr),
@@ -247,14 +250,14 @@ void sched_switch_process_RR() {
 	}
 }
 
-void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task, int insert_head) {
+void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task) {
 	if (ls == &freequeue) task->process_state = ST_ZOMBIE;
 	else if (ls == &readyqueue) task->process_state = ST_READY;
 	else if (ls == &keyboardqueue) task->process_state = ST_BLOCKED;
 	else task->process_state = ST_BLOCKED;
 
 	if (task != idle_task) {
-		if (insert_head) list_add(&task->list,ls);
+		if (ls == &keyboardqueue && task->kbinfo.keysread != 0) list_add(&task->list,ls);
 		else list_add_tail(&task->list,ls);
 	}
 }

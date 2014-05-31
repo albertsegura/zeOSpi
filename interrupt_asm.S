@@ -86,7 +86,7 @@ ENTRY_UA(interrupt_request_handler)
 	cps		#0x1F ;@ system
 	mov 	r4, sp
 	mov		r5, lr
-	cps		#0x12 ;@ supervisor
+	cps		#0x12 ;@ irq
 	bic		r6, sp, #0xFF0
 	bic		r6, r6, #0xF
 	add		r6,	r6,	#0x1C
