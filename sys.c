@@ -63,7 +63,7 @@ int sys_clone(void (*function)(void), void *stack, unsigned int last_sp) {
 	new_pcb->kernel_sp = (unsigned int)&new_stack->stack[pos_sp];
 	new_pcb->kernel_lr = (unsigned int)&ret_from_fork;
 	new_pcb->user_sp = (unsigned int)stack;
-	new_pcb->user_lr = (unsigned int)function; // TODO fer anar a la exit()?
+	new_pcb->user_lr = (unsigned int)function; // we could try to go to exit
 	new_stack->stack[pos_sp+10] = (unsigned int)function;
 
 	/* Inicialització estadistica */
@@ -182,8 +182,6 @@ int sys_fork(unsigned int last_sp) {
 	mmu_change_dir(dir_current);
 
 
-	// TODO gestió copia memoria dinàmica HEAP
-
 	get_newpb(new_pcb);
 	*(new_pcb->program_break) = *(current_pcb->program_break);
 
@@ -223,15 +221,11 @@ int sys_fork(unsigned int last_sp) {
 	}
 	mmu_change_dir(dir_current);
 
-	// TODO end heap copy
-
 	PID = getNewPID();
 	new_pcb->PID = PID;
 
 	/* Punt f i g */
-	// Construint l'enllaç dinamic fent que el esp apunti al ebp guardat
 	new_pcb->kernel_sp = (unsigned int)&new_stack->stack[pos_sp];
-	// Modificant la funció a on retornarà
 	new_pcb->kernel_lr = (unsigned int)&ret_from_fork;
 	new_pcb->user_sp = USER_SP;
 	new_pcb->user_lr = current_pcb->user_lr;
@@ -267,6 +261,8 @@ void sys_exit() {
 	}
 	*(current_pcb->dir_count) -= 1;
 	*(current_pcb->pb_count) -= 1;
+
+	// TODO sem
 
 	/* Punt b */
 	sched_update_queues_state(&freequeue,current());
@@ -320,7 +316,7 @@ unsigned int sys_gettime() {
 }
 
 int sys_get_stats(int pid, struct stats *st) {
-	return 0;	struct task_struct * desired;
+	struct task_struct * desired;
 	int found;
 	if (access_ok(VERIFY_WRITE,st,12) == 0) return -ENACCB;
 
@@ -401,19 +397,19 @@ int sys_sem_destroy(int n_sem) {
 void *sys_sbrk(int increment) {
 	int i;
 	struct task_struct * current_pcb = current();
+	unsigned int pb = *(current_pcb->program_break);
 	void * ret  = (void *)*(current_pcb->program_break);
+	fl_page_table_entry * dir_current = get_DIR(current_pcb);
 	sl_page_table_entry * pt_current = get_PT(current_pcb,1);
 
 	if (increment > 0) {
-		int end = ((*(current_pcb->program_break)+increment)>>12)&0xFF;
+		int end = ((pb+increment)>>OFFSET_BITS)-(1<<PAGE_BITS);
+
 		if (end < TOTAL_PAGES_ENTRIES) { /* Lower limit of the HEAP */
-			for(i = ((*(current_pcb->program_break)>>12)&0xFF);
-						i < end || ( i==end && (0!=( (*(current_pcb->program_break)+increment) & (PAGE_SIZE-1) )) ); ++i) {
+			for(i = PAGE(pb); i < end || ( i==end && (0!=OFFSET((pb+increment))) ); ++i) {
 				if (!check_used_page(&pt_current[i])) {
 					int new_ph_pag=alloc_frame();
-					if (new_ph_pag == -1) {
-						return (void *)-ENMPHP;
-					}
+					if (new_ph_pag == -1) return (void *)-ENMPHP;
 					set_ss_pag(pt_current,i,new_ph_pag);
 				}
 			}
@@ -421,12 +417,10 @@ void *sys_sbrk(int increment) {
 		else return (void *)-ENOMEM;
 	}
 	else if (increment < 0) {
-		fl_page_table_entry * dir_current = get_DIR(current_pcb);
-		int new_pb = ((*(current_pcb->program_break)+increment)>>12)&0xFF;
+		int new_pb = ((pb+increment)>>OFFSET_BITS)-(1<<PAGE_BITS);;
 
 		if (new_pb >= USR_P_HEAPSTART) { /* Upper limit of the HEAP */
-			for(i = ((*(current_pcb->program_break)>>12)&0xFF);
-						i > new_pb || (i==new_pb && (0==( (*(current_pcb->program_break)+increment) & (PAGE_SIZE-1) ))); --i) {
+			for(i = PAGE(pb); i > new_pb || ( i==new_pb && (0==OFFSET((pb+increment))) ); --i) {
 				free_frame(pt_current[i].bits.pbase_addr);
 				del_ss_pag(pt_current, i);
 			}
@@ -434,6 +428,7 @@ void *sys_sbrk(int increment) {
 		}
 		else return (void *)-EHLIMI;
 	}
+
 	*(current_pcb->program_break) += increment;
 
 	return ret;

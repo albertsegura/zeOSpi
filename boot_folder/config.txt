@@ -39,9 +39,8 @@
 #arm_freq=800
 
 # wait for given number of seconds in start.elf before loading kernel. delay = 1000 * boot_delay + boot_delay_ms. Default 1 
-#boot_delay=1
-boot_delay_ms=500
-
+boot_delay=1
+boot_delay_ms=2525
 # for more options see http://elinux.org/RPi_config.txt
 
 

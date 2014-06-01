@@ -71,17 +71,46 @@ void data_abort_routine() {
 }
 
 void interrupt_request_routine() {
+	/*int aux = 0, i;
+	__asm__ __volatile__ (
+			"mov %0, sp;"
+			: "=r"(aux)
+	);*/
+	/*i = aux-(aux&0xFFF);
+	printc('\n'); printc(13);
+	printhex(get_value_from(i+0x18));printc(' ');
+	printhex(get_value_from(i+0x1c));
+
+	printc('\n'); printc(13);*/
+
+/*	for(i=aux-(aux&0xFFF); i < (aux-(aux&0xFFF)+0x20);i+=4) {
+		if ((i&0xF) == 0) {
+			printc('\n'); printc(13);
+		}
+		printhex(get_value_from(i));
+		printc('\t');
+	}*/
+	/*printhex(aux);
+	printc('\n'); printc(13);
+	for(i=aux; (i&0xFF) != 0;i+=4) {
+		if ((i&0xF) == 0) {
+			printc('\n'); printc(13);
+		}
+		printhex(get_value_from(i));
+		printc('\t');
+	}
+	printc('\n'); printc(13);*/
 
 	if (get_value_from(IRQ_PEND_B)&0b1) { // TIMER
 
 		timer_clear_irq();
 		clock_increase();
-		printint(clock_get_time());
+		//printint(clock_get_time());
 
-		printc('\n'); printc(13);
+		//printc('\n'); printc(13);
 		sched_update_data();
 		if (sched_change_needed()) {
-			printc('i');
+			//printc('i');
 			sched_update_queues_state(&readyqueue, current());
 			sched_switch_process();
 		}
@@ -90,10 +119,6 @@ void interrupt_request_routine() {
 		if (uart_interrupt_pend()) {
 			if (uart_interrupt_pend_rx()) {
 				interrupt_uart_routine();
-				/* Byte data;
-				data = uart_get_byte();
-				printc(data);
-				printc('\n'); printc(13);*/
 			}
 		}
 	}
@@ -109,7 +134,7 @@ void set_exception_base() {
 }
 
 
-void set_interruptions(void) {
+void set_interruptions() {
 	set_vitual_to_phsycial(IRQ_BASE,IRQ_BASE_PH,0);
 
 	enable_interrupt_peripheral(IRQ_PHPL_AUX);

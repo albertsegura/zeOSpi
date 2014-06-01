@@ -23,11 +23,11 @@ void interrupt_uart_routine() {
 	circularbWrite(&uart_read_buffer,&data);
 
 	// TODO debug
-	printc(data);
+	printc('\n'); printc(13);
+	printk("Elem:");
 	printint(circularbNumElements(&uart_read_buffer));
 	printc('\n'); printc(13);
 }
-
 
 int sys_read_uart(char *buffer, int size) {
 	int i=0;
@@ -40,7 +40,9 @@ int sys_read_uart(char *buffer, int size) {
 
 	if (!list_empty(&keyboardqueue)) {
 		sched_update_queues_state(&keyboardqueue,current());
+		asm ("stmfd 	sp!, {r0-r12,lr};");
 		sched_switch_process();
+		asm("ldmfd 	sp!, {r0-r12,lr};");
 	}
 
 	while (current_pcb->kbinfo.keystoread > 0) {
@@ -58,7 +60,9 @@ int sys_read_uart(char *buffer, int size) {
 		if (current_pcb->kbinfo.keystoread > 0){
 			// Insert in the front of the queue
 			sched_update_queues_state(&keyboardqueue,current());
+			asm ("stmfd 	sp!, {r0-r12,lr};");
 			sched_switch_process();
+			asm("ldmfd 	sp!, {r0-r12,lr};");
 		}
 	}
 

@@ -61,19 +61,19 @@ extern struct task_struct * idle_task;
 extern unsigned int rr_quantum;
 extern int lastPID;
 
-void init_task1(void);
+void init_task1();
 
-void init_freequeue (void);
+void init_freequeue ();
 
-void init_readyqueue (void);
+void init_readyqueue ();
 
-void init_keyboardqueue (void);
+void init_keyboardqueue ();
 
-void init_idle(void);
+void init_idle();
 
-void init_sched(void);
+void init_sched();
 
-void init_semarray(void);
+void init_semarray();
 
 struct task_struct * current();
 

@@ -22,7 +22,7 @@ void uart_toggle_transmission(unsigned char enable) {
 	set_address_to(AUX_MU_CNTL_REG, reg);
 }
 
-void init_uart(void) {
+void init_uart() {
 	// Set MMU address space
 	set_vitual_to_phsycial(AUX_BASE,AUX_BASE_PH,0);
 

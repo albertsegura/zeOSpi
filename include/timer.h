@@ -22,12 +22,12 @@
 #define TIMER_PREDIVIDER	(TIMER_BASE+0x40C)
 #define TIMER_FREE_RUNNING	(TIMER_BASE+0x420)
 
-void init_timer(void);
-void timer_clear_irq(void);
+void init_timer();
+void timer_clear_irq();
 void timer_set_initial_time(unsigned int time);
 
-void clock_increase(void);
-unsigned int clock_get_time(void);
+void clock_increase();
+unsigned int clock_get_time();
 void clock_set_time(unsigned long time);
 
 

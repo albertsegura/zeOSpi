@@ -10,16 +10,17 @@
 void return_gate(unsigned int sp, unsigned int pc) {
 	__asm__ __volatile__ (
 		"cps #0x1F;"
-		"cpsie i;"
-		"cps #0x10;"
-		"mov sp, #0;"
 		"mov sp, %0;"
-		"mov lr, #0;"
 		"mov lr, %1;"
-		"bx	 lr;"
-		:
-		: "r"(sp), "r"(pc)
+		"cps #0x13;"
+		"mrs %0, cpsr;"
+		"bic %0, %0, #131;"
+		"push {%0};"
+		"push {%1};"
+		"rfeia sp!"
+		: "+r"(sp), "+r"(pc)
 	);
+
 }
 
 /* 	STACK offsets

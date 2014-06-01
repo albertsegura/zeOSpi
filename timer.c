@@ -7,7 +7,7 @@
 
 volatile unsigned int clock_time;
 
-void init_timer(void) {
+void init_timer() {
 	set_vitual_to_phsycial(TIMER_BASE,TIMER_BASE_PH,0);
 
 	clock_time = 0;
@@ -15,7 +15,7 @@ void init_timer(void) {
 	set_address_to(TIMER_CNTL, 0xF900A2);
 }
 
-void timer_clear_irq(void) {
+void timer_clear_irq() {
 	set_address_to(TIMER_IRQ_CLR, -1);
 }
 
@@ -25,11 +25,11 @@ void timer_set_initial_time(unsigned int time) {
 
 ///////////// Clock /////////////
 
-void clock_increase(void) {
+void clock_increase() {
 	clock_time++;
 }
 
-unsigned int clock_get_time(void) {
+unsigned int clock_get_time() {
 	return clock_time;
 }
 

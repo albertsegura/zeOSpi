@@ -34,8 +34,9 @@ sl_page_table_entry * get_PT (struct task_struct *t, unsigned char dir_entry) {
 	return (sl_page_table_entry *)(((unsigned int)(t->dir_pages_baseAddr[dir_entry].bits.pbase_addr))<<10);
 }
 
-void cpu_idle(void)
+void cpu_idle()
 {
+	asm volatile("cpsie i, #0x13;"); // enable irq on SYS
 	while(1);
 }
 
@@ -72,26 +73,27 @@ int getStructPID(int PID, struct list_head * queue, struct task_struct ** pointe
 	return found;
 }
 
-void init_freequeue (void) {
-	INIT_LIST_HEAD(&freequeue);
-
+void init_freequeue () {
 	int i;
+
+	INIT_LIST_HEAD(&freequeue);
 	for (i = 0; i < NR_TASKS; ++i) {
 		list_add_tail(&task[i].task.list,&freequeue);
 	}
 }
 
-void init_readyqueue (void) {
+void init_readyqueue () {
 	INIT_LIST_HEAD(&readyqueue);
 }
 
-void init_keyboardqueue (void) {
+void init_keyboardqueue () {
 	INIT_LIST_HEAD(&keyboardqueue);
 }
 
 
-void init_semarray(void) {
+void init_semarray() {
 	int i;
+
 	for(i=0;i<SEM_SIZE;++i)	{
 		sem_array[i].id = i;
 		sem_array[i].pid_owner = -1;
@@ -99,7 +101,7 @@ void init_semarray(void) {
 	}
 }
 
-void init_idle (void) {
+void init_idle () {
 	struct list_head *idle_list_pointer = list_first(&freequeue);
 	list_del(idle_list_pointer);
 	idle_task = list_head_to_task_struct(idle_list_pointer);
@@ -107,19 +109,17 @@ void init_idle (void) {
 	allocate_page_dir(idle_task);
 
 	idle_task->PID = 0;
-	/*idle_union_stack->stack[KERNEL_STACK_SIZE-1] = (unsigned long)&cpu_idle;
-	idle_union_stack->stack[KERNEL_STACK_SIZE-2] = 0;*/
 	idle_union_stack->task.kernel_sp = (unsigned long)&idle_union_stack->stack[KERNEL_STACK_SIZE-1];
 	idle_union_stack->task.kernel_lr = (unsigned long)&cpu_idle;
 
-	// Inicialitzacio estadistica
+	/* Stats initialization */
 	idle_task->statistics.cs = 0;
 	idle_task->statistics.tics = 0;
 	idle_task->statistics.remaining_quantum = 0;
 	idle_task->process_state = ST_READY;
 }
 
-void init_task1(void) {
+void init_task1() {
 	struct list_head *task1_list_pointer = list_first(&freequeue);
 	list_del(task1_list_pointer);
 	struct task_struct * task1_task_struct = list_head_to_task_struct(task1_list_pointer);
@@ -133,7 +133,7 @@ void init_task1(void) {
 
 	get_newpb(task1_task_struct);
 
-	// Inicialitzacio estadistica
+	/* Stats initialization */
 	task1_task_struct->statistics.cs = 0;
 	task1_task_struct->statistics.tics = 0;
 	task1_task_struct->statistics.remaining_quantum = DEFAULT_RR_QUANTUM;
@@ -141,7 +141,7 @@ void init_task1(void) {
 }
 
 
-void init_sched(){
+void init_sched() {
 	init_Sched_RR();
 }
 
@@ -157,8 +157,6 @@ void task_switch(union task_union *new, unsigned int last_sp) {
 	current_pcb->kernel_sp = last_sp;
 	current_pcb->kernel_lr = last_lr;
 	// Usr sp/lr copied when acceded to the kernel
-
-	set_worlds_stacks((unsigned int)&new->stack[KERNEL_STACK_SIZE-1]);
 
 	__asm__ __volatile__ (
 			// set new kernel sp/lr

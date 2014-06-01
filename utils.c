@@ -94,7 +94,7 @@ inline unsigned int get_value_from(unsigned int address) {
 	return (*pt);
 }
 
-void delay(void) {
+void delay() {
 	// Blank on purpose, generates: asm ("bx lr");
 }
 

@@ -8,7 +8,7 @@ int copy_to_user(void *start, void *dest, int size);
 inline void set_address_to(unsigned int address, unsigned int value);
 inline unsigned int get_value_from(unsigned int address);
 
-void delay(void);
+void delay();
 
 #define VERIFY_READ		0
 #define VERIFY_WRITE	1

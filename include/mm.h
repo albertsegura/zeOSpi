@@ -14,24 +14,22 @@
 /* Bytemap to mark the free physical pages */
 extern Byte phys_mem[TOTAL_PH_PAGES];
 
-int init_frames( void );
-int alloc_frame( void );
+int init_frames();
+int alloc_frame();
 void free_frame( unsigned int frame );
 
 void init_mm();
-void init_dir_pages(void);
-void init_table_pages(void);
-void init_empty_pages(void);
-void set_coprocessor_reg_MMU(void);
+void init_dir_pages();
+void init_table_pages();
+void init_empty_pages();
+void set_coprocessor_reg_MMU();
 
 void set_user_pages( struct task_struct *task );
-
 void mmu_change_dir (fl_page_table_entry * dir);
 
 void enable_icache();
 void disable_icache();
 void invalidate_icache();
-
 void enable_dcache();
 void disable_dcache();
 void invalidate_dcache();
@@ -43,16 +41,13 @@ unsigned int get_frame(sl_page_table_entry *PT, unsigned int page);
 
 void set_vitual_to_phsycial(unsigned int virtual, unsigned ph, char to_current_task);
 
-// Clone related function
+/* Clone/heap related functions */
 void allocate_page_dir (struct task_struct *p);
-// Heap related functions
 void init_pb();
 void get_newpb (struct task_struct *p);
 
-
-/* Temp */
-void test_mmu_funct(void);
-void test_mmu_tlb_status(void);
-void monoprocess_init_addr_space(void);
+/* Temp TODO */
+void test_mmu_funct();
+void test_mmu_tlb_status();
 
 #endif  /* __MM_H__ */

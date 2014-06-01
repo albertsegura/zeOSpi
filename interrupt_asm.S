@@ -81,18 +81,23 @@ ENTRY_UA(data_abort_handler)
 	ldmfd 	sp!, {r0-r12,pc}^
 
 ENTRY_UA(interrupt_request_handler)
-	subs 	lr, lr, #4
+	srsfd 	sp!, 0x13 ;@ svc
+	cpsid	i,	#0x13 ;@ svc
 	stmfd 	sp!, {r0-r12,lr}
 	cps		#0x1F ;@ system
 	mov 	r4, sp
 	mov		r5, lr
-	cps		#0x12 ;@ irq
+	cps		#0x13 ;@ svc
 	bic		r6, sp, #0xFF0
 	bic		r6, r6, #0xF
 	add		r6,	r6,	#0x1C
 	stmda 	r6, {r4,r5}
 	bl 		interrupt_request_routine
-	ldmfd 	sp!, {r0-r12,pc}^
+	ldmfd 	sp!, {r0-r12,lr}
+	pop		{lr}
+	sub 	lr, lr, #4
+	push 	{lr}
+	rfefd	sp!
 
 ENTRY_UA(fast_interrupt_request_handler)
 	subs 	lr, lr, #4

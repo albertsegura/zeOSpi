@@ -7,7 +7,7 @@ ENTRY (sys_call_table)
 	.long sys_fork_wrapper
 	.long sys_clone_wrapper
 	.long sys_write
-	.long sys_read// 5
+	.long sys_read		// 5
 	.long sys_ni_syscall
 	.long sys_ni_syscall
 	.long sys_ni_syscall
@@ -17,7 +17,7 @@ ENTRY (sys_call_table)
 	.long sys_ni_syscall
 	.long sys_ni_syscall
 	.long sys_ni_syscall
-	.long sys_ni_syscall// 15
+	.long sys_led		// 15
 	.long sys_ni_syscall	
 	.long sys_ni_syscall
 	.long sys_ni_syscall

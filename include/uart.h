@@ -35,7 +35,7 @@
 #define BAUDRATE_REG_9600	3254
 
 
-void init_uart(void);
+void init_uart();
 
 Byte uart_interrupt_pend();
 Byte uart_interrupt_pend_rx();

@@ -79,7 +79,9 @@ sys.o:sys.c $(INCLUDEDIR)/devices.h
 
 utils.o:utils.c $(INCLUDEDIR)/utils.h
 
-system.o:system.c $(INCLUDEDIR)/hardware.h system.lds $(SYSOBJ) $(INCLUDEDIR)/segment.h $(INCLUDEDIR)/types.h $(INCLUDEDIR)/interrupt.h $(INCLUDEDIR)/system.h $(INCLUDEDIR)/sched.h $(INCLUDEDIR)/mm.h $(INCLUDEDIR)/io.h $(INCLUDEDIR)/uart.h $(INCLUDEDIR)/gpio.h $(INCLUDEDIR)/timer.h $(INCLUDEDIR)/mm_address.h $(INCLUDEDIR)/errno.h 
+system.o:system.c $(INCLUDEDIR)/hardware.h system.lds $(SYSOBJ) $(INCLUDEDIR)/segment.h $(INCLUDEDIR)/types.h $(INCLUDEDIR)/interrupt.h \
+		$(INCLUDEDIR)/system.h $(INCLUDEDIR)/sched.h $(INCLUDEDIR)/mm.h $(INCLUDEDIR)/io.h $(INCLUDEDIR)/uart.h $(INCLUDEDIR)/gpio.h \
+		$(INCLUDEDIR)/timer.h $(INCLUDEDIR)/mm_address.h $(INCLUDEDIR)/errno.h 
 
 
 
@@ -87,7 +89,7 @@ system: system.o system.lds $(SYSOBJ)
 	$(LD) $< $(SYSOBJ) $(LINKFLAGS) $(SYSLDFLAGS) -o $@
 
 user: user.o user.lds $(USROBJ) 
-	$(LD) $< $(USROBJ) $(LINKFLAGS) $(USRLDFLAGS) -o $@ 
+	$(LD) $< $(USROBJ) $(LINKFLAGS) $(USRLDFLAGS) -o $@
 
 
 

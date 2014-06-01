@@ -59,9 +59,9 @@
 #define GPIO_FUNC_ALT5	0b010
 
 
-void init_gpio(void);
-void gpio_set_led_on(void);
-void gpio_set_led_off(void);
+void init_gpio();
+void gpio_set_led_on();
+void gpio_set_led_off();
 
 
 #endif  /* __GPIO_H__ */

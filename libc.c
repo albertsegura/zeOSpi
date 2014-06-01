@@ -3,9 +3,7 @@
  */
 
 #include <libc.h>
-
 #include <types.h>
-
 #include <errno.h>
 
 void itoa(int a, char *b) {
@@ -42,7 +40,6 @@ int strlen(char *a) {
 	return i;
 }
 
-
 int write (int fd, char *buffer, int size) {
 	int ret;
 	__asm__ volatile(
@@ -51,13 +48,36 @@ int write (int fd, char *buffer, int size) {
 		"mov %%r2, %3;"
 		"mov %%r7, %4;"
 		"svc 0x0;"
-		"mov %0, %%r0;"	// TODO fer per altres syscalls (?)
-		:"=r" (ret), 				// %0, resultat a ret
-		"+r" (fd),					// %1, parameter 1
-		"+r" (buffer),				// %2, parameter 2
-		"+r" (size)					// %3, parameter 3.
-		:"r" (4)					// %4, sys_call_table index
+		"mov %0, %%r0;"
+		:"=r" (ret) 				// %0, resultat a ret
+		:"r" (fd),					// %1, parameter 1
+		"r" (buffer),				// %2, parameter 2
+		"r" (size),					// %3, parameter 3.
+		"r" (4)					// %4, sys_call_table index
 		:"r0", "r1", "r2", "r7"		// We tell the compiler the registers modified
+	);
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
+	return ret;
+}
+
+int read (int fd, char *buffer, int size) {
+	int ret;
+	__asm__ volatile(
+		"mov %%r0, %1;"
+		"mov %%r1, %2;"
+		"mov %%r2, %3;"
+		"mov %%r7, %4;"
+		"svc 0x0;"
+		"mov %0, %%r0;"
+		:"=r" (ret)
+		:"r" (fd),
+		"r" (buffer),
+		"r" (size),
+		"r"  (5)
+		:"r0", "r1", "r2", "r7"
 	);
 	if (ret < 0) {
 		errno = -ret;
@@ -71,6 +91,7 @@ unsigned int gettime() {
 	__asm__ volatile(
 		"mov %%r7, %1;"
 		"svc 0x0;"
+		"mov %0, %%r0;"
 		:"=r" (ret)
 		:"r"  (10)
 	 	:"r7"
@@ -78,11 +99,12 @@ unsigned int gettime() {
 	return ret;
 }
 
-int getpid(void) {
+int getpid() {
 	int ret;
 	__asm__ volatile(
 		"mov %%r7, %1;"
 		"svc 0x0;"
+		"mov %0, %%r0;"
 		:"=r" (ret)
 		:"r"  (20)
 		:"r7"
@@ -95,6 +117,7 @@ int fork() {
 	__asm__ volatile(
 		"mov %%r7, %1;"
 		"svc 0x0;"
+		"mov %0, %%r0;"
 		:"=r" (ret)
 		:"r"  (2)
 		:"r7"
@@ -111,6 +134,7 @@ int debug_task_switch() {
 	__asm__ volatile(
 		"mov %%r7, %1;"
 		"svc 0x0;"
+		"mov %0, %%r0;"
 		:"=r" (ret)
 		:"r"  (9)
 		:"r7"
@@ -135,10 +159,11 @@ int get_stats(int pid, struct stats *st) {
 		"mov %%r1, %2;"
 		"mov %%r7, %3;"
 		"svc 0x0;"
-		:"=r" (ret),
-		"+r" (pid),
-		"+r" (st)
-		:"r" (35)
+		"mov %0, %%r0;"
+		:"=r" (ret)
+		:"r" (pid),
+		"r" (st),
+		"r" (35)
 		:"r0", "r1", "r7"
 	);
 	if (ret < 0) {
@@ -155,10 +180,11 @@ int clone (void (*function)(void), void *stack) {
 		"mov %%r1, %2;"
 		"mov %%r7, %3;"
 		"svc 0x0;"
-		:"=r" (ret),
-		"+r" (function),
-		"+r" (stack)
-		:"r" (3)
+		"mov %0, %%r0;"
+		:"=r" (ret)
+		:"r" (function),
+		"r" (stack),
+		"r" (3)
 		:"r0", "r1", "r2", "r3", "r7"
 	);
 	if (ret < 0) {
@@ -168,21 +194,19 @@ int clone (void (*function)(void), void *stack) {
 	return ret;
 }
 
-
-int read (int fd, char *buffer, int size) {
+int sem_init (int n_sem, unsigned int value) {
 	int ret;
 	__asm__ volatile(
 		"mov %%r0, %1;"
 		"mov %%r1, %2;"
-		"mov %%r2, %3;"
-		"mov %%r7, %4;"
+		"mov %%r7, %3;"
 		"svc 0x0;"
-		:"=r" (ret),
-		"+r" (fd),
-		"+r" (buffer),
-		"+r" (size)
-		:"r"  (5)
-		:"r0", "r1", "r2", "r7"
+		"mov %0, %%r0;"
+		:"=r" (ret)
+		:"r" (n_sem),
+		"r" (value),
+		"r" (21)
+		:"r0", "r1", "r7"
 	);
 	if (ret < 0) {
 		errno = -ret;
@@ -191,6 +215,91 @@ int read (int fd, char *buffer, int size) {
 	return ret;
 }
 
-// TODO sem & sbrk syscalls & exit & led
+int sem_wait (int n_sem) {
+	int ret;
+	__asm__ volatile(
+		"mov %%r0, %1;"
+		"mov %%r7, %2;"
+		"svc 0x0;"
+		"mov %0, %%r0;"
+		:"=r" (ret)
+		:"r" (n_sem),
+		"r" (22)
+		:"r0", "r7"
+	);
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
+	return ret;
+}
 
+int sem_signal (int n_sem) {
+	int ret;
+	__asm__ volatile(
+		"mov %%r0, %1;"
+		"mov %%r7, %2;"
+		"svc 0x0;"
+		"mov %0, %%r0;"
+		:"=r" (ret)
+		:"r" (n_sem),
+		"r" (23)
+		:"r0", "r7"
+	);
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
+	return ret;
+}
+
+int sem_destroy (int n_sem) {
+	int ret;
+	__asm__ volatile(
+		"mov %%r0, %1;"
+		"mov %%r7, %2;"
+		"svc 0x0;"
+		"mov %0, %%r0;"
+		:"=r" (ret)
+		:"r" (n_sem),
+		"r" (24)
+		:"r0", "r7"
+	);
+	if (ret < 0) {
+		errno = -ret;
+		ret = -1;
+	}
+	return ret;
+}
+
+void *sbrk (int increment) {
+	void *ret;
+	__asm__ volatile(
+		"mov %%r0, %1;"
+		"mov %%r7, %2;"
+		"svc 0x0;"
+		"mov %0, %%r0;"
+		:"=r" (ret)
+		:"r" (increment),
+		"r" (25)
+		:"r0", "r7"
+	);
+	if ((int)ret < 0) {
+		errno = -((int)ret);
+		ret = (void *)-1;
+	}
+	return ret;
+}
+
+void change_led(int status) {
+	__asm__ volatile(
+		"mov %%r0, %0;"
+		"mov %%r7, %1;"
+		"svc 0x0;"
+		:
+		:"r" (status),
+		"r" (15)
+		:"r0", "r7"
+	);
+}
 

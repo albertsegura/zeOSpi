@@ -95,7 +95,7 @@ void set_empty_page(sl_page_table_entry * empty_page) {
     empty_page->bits.ng = 1;
 }
 
-void init_empty_pages(void) {
+void init_empty_pages() {
 	int i;
     /* Set empty pages to known and controlled memory space */
     for (i=0; i<TOTAL_PAGES_ENTRIES; i++) {
@@ -119,7 +119,7 @@ char check_used_page(sl_page_table_entry *pt) {
 }
 
 /* Initializes the page table (kernel pages only) */
-void init_table_pages(void) {
+void init_table_pages() {
     int i,j,k;
     /* reset all entries */
     for (i=0; i< NR_TASKS; i++) {
@@ -149,7 +149,7 @@ void init_table_pages(void) {
 }
 
 /* Init page table directory */
-void init_dir_pages(void) {
+void init_dir_pages() {
     int i, j;
 
     for (i = 0; i < NR_TASKS; i++) {
@@ -186,7 +186,7 @@ void init_pb() {
 }
 
 
-void test_mmu_funct(void) {
+void test_mmu_funct() {
 	unsigned int mmu_en = 0;
 	unsigned int * pt;
 
@@ -206,7 +206,7 @@ void test_mmu_funct(void) {
 	);
 }
 
-void test_mmu_tlb_status(void) {
+void test_mmu_tlb_status() {
 	unsigned int volatile aux;
 	unsigned int volatile * pt;
 
@@ -234,7 +234,7 @@ void test_mmu_tlb_status(void) {
 }
 
 /* Coprocessor Registers configuration relative to the MMU*/
-void set_coprocessor_reg_MMU(void) {
+void set_coprocessor_reg_MMU() {
 	unsigned int ttb = (unsigned int)&fl_ptable[1][ENTRY_DIR_PAGES];
 	__asm__ __volatile__ (
 		"MCR P15, 0,  %0,  c1, c1, 2;" 	// Non-secure address control
@@ -348,20 +348,6 @@ void invalidate_dcache() {
 
 }
 
-void monoprocess_init_addr_space(void) {
-	set_user_pages(&task[0].task);
-	// TODO invalidate tlb
-	/*
-    asm volatile ("mcr p15, 0, %0, c7, c5,  4" :: "r" (0) : "memory");
-    asm volatile ("mcr p15, 0, %0, c7, c6,  0" :: "r" (0) : "memory");
-	__asm__ __volatile__ (
-			"MCR P15, 0,  %0,  c7, c7, 0;" // invalidate both caches
-			"MCR P15, 0,  %0,  c8, c7, 0;" // invalidate tlb
-			:
-			: "r" (0)
-	);*/
-}
-
 /* Initialize pages for initial process (user pages) */
 void set_user_pages( struct task_struct *task ) {
 	int pag;
@@ -433,22 +419,43 @@ void set_vitual_to_phsycial(unsigned int virtual, unsigned ph, char to_current_t
 	);
 }
 
+/* Changes directory base and flushes TLB and d/i caches */
 void mmu_change_dir (fl_page_table_entry * dir) {
 	__asm__ __volatile__ (
 			"mcr P15, 0,  %0,  c2, c0, 0;"	// TTB0
 			"mcr P15, 0,  %0,  c2, c0, 1;"	// TTB1
+			"MCR P15, 0,  %1,  c7, c7, 0;" // invalidate both caches
+			"MCR P15, 0,  %1,  c8, c7, 0;" // invalidate tlb
 			: /* no output */
-			: "r"(dir)
-	);
-	// TODO invalidate tlb
-	__asm__ __volatile__ (
-//			"MCR P15, 0,  %0,  c7, c7, 0;" // invalidate both caches
-			"MCR P15, 0,  %0,  c8, c7, 0;" // invalidate tlb
-			:
-			: "r" (0)
+			: "r"(dir), "r" (0)
 	);
 }
 
+/* allocate_page_dir - Assignates a dir page to a task_struct and initializes its reference counter */
+void allocate_page_dir (struct task_struct *p) {
+	int i;
+	char found = 0;
+	for (i=0; i<NR_TASKS && !found; ++i) {
+		found = (assigned_base_dir[i] == 0);
+	}
+	--i;
+	p->dir_pages_baseAddr = (fl_page_table_entry *)&fl_ptable[i][ENTRY_DIR_PAGES];
+	p->dir_count = &assigned_base_dir[i];
+	assigned_base_dir[i] = 1;
+}
+
+void get_newpb (struct task_struct *p) {
+	int i;
+	char found = 0;
+	for (i=0; i<NR_TASKS && !found; ++i) {
+		found = (pb_counter[i] == 0);
+	}
+	--i;
+	p->program_break = &program_breaks[i];
+	p->pb_count = &pb_counter[i];
+	program_breaks[i] = (0x100+USR_P_HEAPSTART)<<12;
+	pb_counter[i] = 1;
+}
 
 /***********************************************/
 /************** FRAMES MANAGEMENT **************/
@@ -532,30 +539,3 @@ void del_ss_pag(sl_page_table_entry *PT, unsigned logical_page) {
 unsigned int get_frame (sl_page_table_entry *PT, unsigned int logical_page) {
      return PT[logical_page].bits.pbase_addr; 
 }
-
-/* allocate_page_dir - Assignates a dir page to a task_struct and initializes its reference counter */
-void allocate_page_dir (struct task_struct *p) {
-	int i;
-	char found = 0;
-	for (i=0; i<NR_TASKS && !found; ++i) {
-		found = (assigned_base_dir[i] == 0);
-	}
-	--i;
-	p->dir_pages_baseAddr = (fl_page_table_entry *)&fl_ptable[i][ENTRY_DIR_PAGES];
-	p->dir_count = &assigned_base_dir[i];
-	assigned_base_dir[i] = 1;
-}
-
-void get_newpb (struct task_struct *p) {
-	int i;
-	char found = 0;
-	for (i=0; i<NR_TASKS && !found; ++i) {
-		found = (pb_counter[i] == 0);
-	}
-	--i;
-	p->program_break = &program_breaks[i];
-	p->pb_count = &pb_counter[i];
-	program_breaks[i] = (0x100+USR_P_HEAPSTART)<<12;
-	pb_counter[i] = 1;
-}
-
