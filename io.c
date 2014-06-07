@@ -1,19 +1,18 @@
-/*
- * io.c -
- */
-
 #include <io.h>
 #include <uart.h>
 
+/* Print char */
 void printc(char c) {
 	uart_send_byte(c);
 }
 
+/* Print string */
 void printk(char *string) {
   int i;
   for (i = 0; string[i]; i++) printc(string[i]);
 }
 
+/* Print integer */
 void printint(unsigned int num) {
 	char xifres = 0;
 	unsigned int reversed = 0;
@@ -33,6 +32,7 @@ void printint(unsigned int num) {
 	}
 }
 
+/* Print Hexa */
 void printhex(unsigned int num) {
 	int i;
 	printc('0');

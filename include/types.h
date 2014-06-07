@@ -1,7 +1,3 @@
-/*
- * types.h - Definició de tipus i estructures de dades
- */
-
 #ifndef __TYPES_H__
 #define __TYPES_H__
 
@@ -12,11 +8,11 @@ typedef unsigned char       Byte;
 typedef unsigned short int  Word;
 typedef unsigned long       DWord;
 
-#define highWord(address) (Word)(((address) >> 16) & 0xFFFF)
-#define lowWord(address) (Word)((address) & 0xFFFF)
-#define midByte(address) (Byte)(((address) >> 16) & 0xFF)
-#define highByte(address) (Byte)(((address) >> (16 + 8)) & 0xFF)
-#define high4Bits(limit) (Byte)(((limit) >> 16) & 0x0F)
+#define highWord(address)	(Word)(((address) >> 16) & 0xFFFF)
+#define lowWord(address)	(Word)((address) & 0xFFFF)
+#define midByte(address)	(Byte)(((address) >> 16) & 0xFF)
+#define highByte(address)	(Byte)(((address) >> (16 + 8)) & 0xFF)
+#define high4Bits(limit)	(Byte)(((limit) >> 16) & 0x0F)
 
 
 
@@ -86,7 +82,7 @@ typedef union
     unsigned int A         : 1;
     unsigned int C         : 1;
     unsigned int W         : 1;
-    unsigned int           : 3; //SBO
+    unsigned int           : 3; //SB0
     unsigned int B         : 1;
     unsigned int S         : 1;
     unsigned int R         : 1;
@@ -97,18 +93,18 @@ typedef union
     unsigned int RR        : 1;
     unsigned int L4        : 1;
     unsigned int DT        : 1;
-    unsigned int           : 1; //SBO
+    unsigned int           : 1; //SB0
     unsigned int IT        : 1;
-    unsigned int           : 2; //SBO
+    unsigned int           : 2; //SB0
     unsigned int FI        : 1;
     unsigned int U         : 1;
     unsigned int XP        : 1;
     unsigned int VE        : 1;
     unsigned int EE        : 1;
-    unsigned int           : 2; //SBO
+    unsigned int           : 2; //SB0
     unsigned int TR        : 1;
     unsigned int FA        : 1;
-    unsigned int           : 2; //SBO
+    unsigned int           : 2; //SB0
   } bits;
 } ctrl_reg;
 

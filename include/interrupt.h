@@ -1,7 +1,3 @@
-/*
- * interrupt.h - Definició de les diferents rutines de tractament d'exepcions
- */
-
 #ifndef __INTERRUPT_H__
 #define __INTERRUPT_H__
 

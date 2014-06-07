@@ -1,34 +1,12 @@
-/*
- * interrupt.c -
- */
-
 #include <devices.h>
 #include <hardware.h>
 #include <interrupt.h>
 #include <io.h>
 #include <sched.h>
-#include <segment.h>
 #include <timer.h>
 #include <uart.h>
 
-/*char char_map[] =
-{
-  '\0','\0','1','2','3','4','5','6',
-  '7','8','9','0','\'','¡','\0','\0',
-  'q','w','e','r','t','y','u','i',
-  'o','p','`','+','\0','\0','a','s',
-  'd','f','g','h','j','k','l','ñ',
-  '\0','º','\0','ç','z','x','c','v',
-  'b','n','m',',','.','-','\0','*',
-  '\0','\0','\0','\0','\0','\0','\0','\0',
-  '\0','\0','\0','\0','\0','\0','\0','7',
-  '8','9','-','4','5','6','+','1',
-  '2','3','0','\0','\0','\0','<','\0',
-  '\0','\0','\0','\0','\0','\0','\0','\0',
-  '\0','\0'
-};*/
-
-
+/* Enable peripheral interrupt */
 void enable_interrupt_peripheral(unsigned int irq) {
 	if (irq < 32) {
 		set_address_to(IRQ_ENABLE_1, 1<<irq);
@@ -41,6 +19,7 @@ void enable_interrupt_peripheral(unsigned int irq) {
 	}
 }
 
+/* Disable peripheral interrupt */
 void disable_interrupt_peripheral(unsigned int irq) {
 	if (irq < 32) {
 		set_address_to(IRQ_DISABLE_1, 1<<irq);
@@ -53,7 +32,7 @@ void disable_interrupt_peripheral(unsigned int irq) {
 	}
 }
 
-/* Exception Routines (except software_interrupt) */
+/* Exception Routines (except software_interrupt, defined in asm) */
 void reset_routine() {
 	while(1);
 }
@@ -128,12 +107,14 @@ void fast_interrupt_request_routine() {
 	while(1);
 }
 
+/* Set the exception base register */
 void set_exception_base() {
 	unsigned int base = ((unsigned int)&exception_vector_table);
 	__asm__ __volatile__ ("MCR P15, 0,  %0,  c12, c0, 0;" :	: "r" (base));
 }
 
 
+/* Set the interrupts address space & enable peripheral interrupts */
 void set_interruptions() {
 	set_vitual_to_phsycial(IRQ_BASE,IRQ_BASE_PH,0);
 

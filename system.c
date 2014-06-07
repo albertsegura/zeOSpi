@@ -1,12 +1,7 @@
-/*
- * system.c - 
- */
-
 #include <hardware.h>
 #include <interrupt.h>
 #include <io.h>
 #include <mm.h>
-#include <segment.h>
 #include <sched.h>
 #include <system.h>
 #include <timer.h>
@@ -37,12 +32,11 @@ int __attribute__((__section__(".text.main"))) main() {
 	set_initial_stack();
 	set_worlds_stacks((unsigned int)INITAL_KERNEL_STACK);
 
+	/* Initialize exception vector base */
 	set_exception_base();
 
 	/* Initialize Memory */
 	init_mm();
-
-	//test_mmu_funct();
 
 	/* Initialize Queues&Semaphores */
 	init_freequeue();
@@ -55,27 +49,19 @@ int __attribute__((__section__(".text.main"))) main() {
 	init_uart();
 	init_timer();
 
-
-	/*while (1) {
-		uart_send_byte('a');
-	}*/
-	//printk("Kernel Loaded!\n");
-
-	//while(1) ;
-	//test_mmu_tlb_status();
+	printk("Kernel Loaded!\n");
 
 	init_sched();
 	init_idle();
 	init_task1();
 
 	circularbInit(&uart_read_buffer,uart_read_buff_arr, UART_READ_BUFFER_SIZE);
-
 	set_interruptions();
 
 	/* Move user code/data now (after the page table initialization) */
 	copy_data((void *) KERNEL_START + *p_sys_size, usr_main, *p_usr_size);
 
-	//printk("Entering user mode...\n");
+	printk("Entering user mode...\n");
 
 	/* Jumps to usr space & enables interrupts */
 	return_gate(USER_SP, L_USER_START);

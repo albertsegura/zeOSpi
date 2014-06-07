@@ -1,5 +1,5 @@
-#ifndef MM_ADDRESS_H
-#define MM_ADDRESS_H
+#ifndef __MM_ADDRESS_H__
+#define __MM_ADDRESS_H__
 
 #define ENTRY_DIR_PAGES			0
 

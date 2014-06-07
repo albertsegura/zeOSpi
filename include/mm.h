@@ -1,7 +1,3 @@
-/*
- * mm.h - Capçalera del mòdul de gestió de memòria
- */
-
 #ifndef __MM_H__
 #define __MM_H__
 
@@ -11,6 +7,7 @@
 
 #define FREE_FRAME 0
 #define USED_FRAME 1
+
 /* Bytemap to mark the free physical pages */
 extern Byte phys_mem[TOTAL_PH_PAGES];
 
@@ -29,10 +26,6 @@ void mmu_change_dir (fl_page_table_entry * dir);
 
 void enable_icache();
 void disable_icache();
-void invalidate_icache();
-void enable_dcache();
-void disable_dcache();
-void invalidate_dcache();
 
 char check_used_page(sl_page_table_entry *pt);
 void set_ss_pag(sl_page_table_entry *PT, unsigned page,unsigned frame);
@@ -45,9 +38,5 @@ void set_vitual_to_phsycial(unsigned int virtual, unsigned ph, char to_current_t
 void allocate_page_dir (struct task_struct *p);
 void init_pb();
 void get_newpb (struct task_struct *p);
-
-/* Temp TODO */
-void test_mmu_funct();
-void test_mmu_tlb_status();
 
 #endif  /* __MM_H__ */

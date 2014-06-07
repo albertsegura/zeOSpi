@@ -23,7 +23,7 @@ SYSLDFLAGS = -T system.lds
 USRLDFLAGS = -T user.lds
 LINKFLAGS = -g 
 
-SYSOBJ = interrupt.o entry.o sys_call_table.o interrupt_asm.o io.o uart.o gpio.o timer.o sched.o sys.o mm.o devices.o utils.o hardware.o errno.o
+SYSOBJ = interrupt.o sys_call_table.o interrupt_asm.o io.o uart.o gpio.o timer.o sched.o sys.o mm.o devices.o utils.o hardware.o errno.o
 
 #add to USROBJ the object files required to complete the user program
 USROBJ = libc.o perror.o errno.o
@@ -43,19 +43,17 @@ zeos.bin: system build user
 build: build.c
 	$(HOSTCC) $(HOSTCFLAGS) -o $@ $<
 
-entry.s: entry.S $(INCLUDEDIR)/asm.h $(INCLUDEDIR)/segment.h
+sys_call_table.s: sys_call_table.S $(INCLUDEDIR)/asm.h
 	$(CPP) $(ASMFLAGS) -o $@ $<
 
-sys_call_table.s: sys_call_table.S $(INCLUDEDIR)/asm.h $(INCLUDEDIR)/segment.h
+interrupt_asm.s: interrupt_asm.S $(INCLUDEDIR)/asm.h
 	$(CPP) $(ASMFLAGS) -o $@ $<
 
-interrupt_asm.s: interrupt_asm.S $(INCLUDEDIR)/asm.h $(INCLUDEDIR)/segment.h
-	$(CPP) $(ASMFLAGS) -o $@ $<
 
 
 user.o:user.c $(INCLUDEDIR)/libc.h
 
-interrupt.o:interrupt.c $(INCLUDEDIR)/interrupt.h $(INCLUDEDIR)/segment.h $(INCLUDEDIR)/types.h
+interrupt.o:interrupt.c $(INCLUDEDIR)/interrupt.h $(INCLUDEDIR)/types.h
 
 io.o:io.c $(INCLUDEDIR)/io.h
 
@@ -79,9 +77,9 @@ sys.o:sys.c $(INCLUDEDIR)/devices.h
 
 utils.o:utils.c $(INCLUDEDIR)/utils.h
 
-system.o:system.c $(INCLUDEDIR)/hardware.h system.lds $(SYSOBJ) $(INCLUDEDIR)/segment.h $(INCLUDEDIR)/types.h $(INCLUDEDIR)/interrupt.h \
-		$(INCLUDEDIR)/system.h $(INCLUDEDIR)/sched.h $(INCLUDEDIR)/mm.h $(INCLUDEDIR)/io.h $(INCLUDEDIR)/uart.h $(INCLUDEDIR)/gpio.h \
-		$(INCLUDEDIR)/timer.h $(INCLUDEDIR)/mm_address.h $(INCLUDEDIR)/errno.h 
+system.o:system.c $(INCLUDEDIR)/hardware.h system.lds $(SYSOBJ) $(INCLUDEDIR)/types.h $(INCLUDEDIR)/interrupt.h \
+		$(INCLUDEDIR)/system.h $(INCLUDEDIR)/sched.h $(INCLUDEDIR)/mm.h $(INCLUDEDIR)/io.h $(INCLUDEDIR)/uart.h \
+		$(INCLUDEDIR)/gpio.h $(INCLUDEDIR)/timer.h $(INCLUDEDIR)/mm_address.h $(INCLUDEDIR)/errno.h 
 
 
 
@@ -94,7 +92,7 @@ user: user.o user.lds $(USROBJ)
 
 
 clean:
-	rm -f *.o *.s bochsout.txt parport.out system.out system zeos.bin user user.out *~ build kernel.img 
+	rm -f *.o *.s system.out system zeos.bin user user.out *~ include/*~ build kernel.img 
 
 debug: zeos.bin
 	qemu-system-arm -s -S -kernel zeos.bin -cpu arm1176 -m 256 -M versatilepb -no-reboot &

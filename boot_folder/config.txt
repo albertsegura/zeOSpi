@@ -40,7 +40,7 @@
 
 # wait for given number of seconds in start.elf before loading kernel. delay = 1000 * boot_delay + boot_delay_ms. Default 1 
 boot_delay=1
-boot_delay_ms=2525
+boot_delay_ms=0
 # for more options see http://elinux.org/RPi_config.txt
 
 

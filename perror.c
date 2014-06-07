@@ -1,5 +1,4 @@
 #include <perror.h>
-
 #include <types.h>
 
 
@@ -25,8 +24,6 @@ char *sys_errlist[] = {
 /*	EHLIMI 17  	*/ "Heap limit reached"
 // Afegir coma al penultim element, i incrementar el max
 };
-
-
 
 int sys_nerr = 17; // Max number
 

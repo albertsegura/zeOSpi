@@ -1,7 +1,3 @@
-/*
- * sched.c - initializes struct for task 0 and task 1
- */
-
 #include <sched.h>
 #include <mm.h>
 #include <io.h>
@@ -10,22 +6,17 @@
 #include <system.h>
 
 union task_union task[NR_TASKS] __attribute__((__section__(".data.task")));
-
-int lastPID;
-
-struct list_head freequeue;
-
-struct list_head readyqueue;
-
-struct list_head keyboardqueue;
-
 struct task_struct * idle_task;
 
+struct list_head freequeue;
+struct list_head readyqueue;
+struct list_head keyboardqueue;
+
+int lastPID;
 unsigned int rr_quantum;
 
 /* get_DIR - Returns the Page Directory address for task 't' */
-fl_page_table_entry * get_DIR (struct task_struct *t)
-{
+fl_page_table_entry * get_DIR (struct task_struct *t) {
 	return t->dir_pages_baseAddr;
 }
 
@@ -34,12 +25,13 @@ sl_page_table_entry * get_PT (struct task_struct *t, unsigned char dir_entry) {
 	return (sl_page_table_entry *)(((unsigned int)(t->dir_pages_baseAddr[dir_entry].bits.pbase_addr))<<10);
 }
 
-void cpu_idle()
-{
+/* Idle task function */
+void cpu_idle() {
 	asm volatile("cpsie i, #0x13;"); // enable irq on SYS
 	while(1);
 }
 
+/* Get task_struct of the process from the queue with the especified PID  */
 int getStructPID(int PID, struct list_head * queue, struct task_struct ** pointer_to_desired) {
 	int found = 0;
 
@@ -73,6 +65,7 @@ int getStructPID(int PID, struct list_head * queue, struct task_struct ** pointe
 	return found;
 }
 
+/* Init freequeue */
 void init_freequeue () {
 	int i;
 
@@ -82,15 +75,17 @@ void init_freequeue () {
 	}
 }
 
+/* Init readyqueue */
 void init_readyqueue () {
 	INIT_LIST_HEAD(&readyqueue);
 }
 
+/* Init keyboardqueue */
 void init_keyboardqueue () {
 	INIT_LIST_HEAD(&keyboardqueue);
 }
 
-
+/* Init Semaphores */
 void init_semarray() {
 	int i;
 
@@ -101,7 +96,8 @@ void init_semarray() {
 	}
 }
 
-void init_idle () {
+/* Idle task initialization */
+void init_idle () {	
 	struct list_head *idle_list_pointer = list_first(&freequeue);
 	list_del(idle_list_pointer);
 	idle_task = list_head_to_task_struct(idle_list_pointer);
@@ -119,6 +115,7 @@ void init_idle () {
 	idle_task->process_state = ST_READY;
 }
 
+/* Task1 initialization */
 void init_task1() {
 	struct list_head *task1_list_pointer = list_first(&freequeue);
 	list_del(task1_list_pointer);
@@ -140,29 +137,44 @@ void init_task1() {
 	task1_task_struct->process_state = ST_RUN;
 }
 
-
+/* Init scheduler */
 void init_sched() {
 	init_Sched_RR();
 }
 
+/* Task switch wrapper */
+void task_switch_wrapper(union task_union *new) {
+	unsigned int current_sp = 0;
+	__asm__ __volatile__ (
+			"stmfd	sp!, {r0-r12};"
+			"mov 	%0, sp;"
+			: "=r"(current_sp)
+	);
+	task_switch(new, current_sp);
+	__asm__ __volatile__("ldmfd sp!, {r0-r12};");
+}
+
+/* Task switch */
 void task_switch(union task_union *new, unsigned int last_sp) {
 	unsigned int last_lr;
 	__asm__ __volatile__ ("mov %0, lr" : "=r"(last_lr));
+	
 	struct task_struct * current_pcb = current();
 	fl_page_table_entry * dir_new = get_DIR((struct task_struct *) new);
 	fl_page_table_entry * dir_current = get_DIR(current_pcb);
 
+	/* Change directory base and flushes TLB except for threads */	
 	if (dir_new != dir_current) mmu_change_dir(dir_new);
 
+	/* Save the kernel/user state. (User saved when entered to the kernel) */	
 	current_pcb->kernel_sp = last_sp;
 	current_pcb->kernel_lr = last_lr;
-	// Usr sp/lr copied when acceded to the kernel
-
+	
 	__asm__ __volatile__ (
-			// set new kernel sp/lr
+			/* set new kernel sp/lr */
 			"mov	sp, %0;"
 			"mov	lr, %1;"
-			// set new user sp/lr
+			/* set new user sp/lr */
 			"cps	#0x1F;" // SYS mode
 			"mov	sp, %2;"
 			"mov	lr, %3;"
@@ -172,17 +184,19 @@ void task_switch(union task_union *new, unsigned int last_sp) {
 			: "r" (new->task.kernel_sp), "r" (new->task.kernel_lr),
 			  "r" (new->task.user_sp),	 "r" (new->task.user_lr)
 	);
-
 }
 
+/* Return new PID */
 int getNewPID() {
 	return ++lastPID;
 }
 
+/* Returns the task_struct at the head of the list */
 struct task_struct *list_head_to_task_struct(struct list_head *l) {
 	return list_entry(l,struct task_struct,list);
 }
 
+/* Returns a pointer to the current task_struct */
 struct task_struct* current() {
 	int ret_value=0;
 	__asm__ __volatile__ (
@@ -194,32 +208,35 @@ struct task_struct* current() {
 
 /* SCHEDULER */
 
+/* Initialize RR scheduler */
 void init_Sched_RR() {
+	/* Scheduler RR selected*/
 	sched_update_data = sched_update_data_RR;
 	sched_change_needed = sched_change_needed_RR;
 	sched_switch_process = sched_switch_process_RR;
 	sched_update_queues_state = sched_update_queues_state_RR;
 	rr_quantum = DEFAULT_RR_QUANTUM;
 
-	/* Inicialitzacio estadistica */
 	struct task_struct * current_task = current();
 	current_task->statistics.remaining_quantum = DEFAULT_RR_QUANTUM;
 	current_task->process_state = ST_READY;
 }
 
+/* Update RR scheduler data */
 void sched_update_data_RR() {
 	--rr_quantum;
 
-	/* Actualitzacio estadistica */
 	struct task_struct * current_task = current();
 	--(current_task->statistics.remaining_quantum);
 	++(current_task->statistics.tics);
 }
 
+/* RR scheduler check variable */
 int sched_change_needed_RR() {
 	return rr_quantum == 0;
 }
 
+/* Task switch RR scheduler */
 void sched_switch_process_RR() {
 	struct list_head *task_list;
 	struct task_struct * task;
@@ -239,15 +256,14 @@ void sched_switch_process_RR() {
 	task->statistics.remaining_quantum = DEFAULT_RR_QUANTUM;
 	rr_quantum = DEFAULT_RR_QUANTUM;
 	if (task != current()) {
-		unsigned int current_sp = 0;
 		++task->statistics.cs;
 		task->process_state = ST_RUN;
 		current()->process_state = ST_READY;
-		__asm__ __volatile__ ("mov %0, sp" : "=r"(current_sp));
-		task_switch((union task_union*)task,current_sp);
+		task_switch_wrapper((union task_union*)task);
 	}
 }
 
+/* Update queues state RR scheduler */
 void sched_update_queues_state_RR(struct list_head* ls, struct task_struct * task) {
 	if (ls == &freequeue) task->process_state = ST_ZOMBIE;
 	else if (ls == &readyqueue) task->process_state = ST_READY;

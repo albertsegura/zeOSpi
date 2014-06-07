@@ -1,7 +1,3 @@
-/*
- * sys.c - Syscalls implementation
- */
-
 #include <cbuffer.h>
 #include <devices.h>
 #include <errno.h>
@@ -20,6 +16,7 @@
 #define LECTURA 0
 #define ESCRIPTURA 1
 
+/* Check read/write fd function */
 int check_fd(int fd, int permissions)
 {
   if (fd != 1 && fd != 0) return -EBADF;
@@ -28,35 +25,34 @@ int check_fd(int fd, int permissions)
   return 0;
 }
 
+/* "Not implemented" syscall */
 int sys_ni_syscall() {
 	return -ENOSYS;
 }
 
+/* Syscall getpid, returns current PID */
 int sys_getpid() {
 	return current()->PID;
 }
 
+/* Syscall clone, thread creation */
 int sys_clone(void (*function)(void), void *stack, unsigned int last_sp) {
 	int PID;
 	unsigned int pos_sp = 0;
 
-	/* Obtenció d'una task_struct nova de la freequeue */
+	/* Variables initialization, get new task_struct from freequeue */
 	if (list_empty(&freequeue)) return -ENTASK;
 	struct list_head *new_list_pointer = list_first(&freequeue);
 	list_del(new_list_pointer);
 	struct task_struct * new_pcb = list_head_to_task_struct(new_list_pointer);
 	struct task_struct * current_pcb = current();
 	union task_union *new_stack = (union task_union*)new_pcb;
-
 	pos_sp = ((unsigned int)last_sp-(unsigned int)current_pcb)/4;
 
 	/* Copy of the stack and increment of the references to the directory/heap */
 	copy_data(current_pcb, new_pcb, 4096);
 	*(new_pcb->dir_count) += 1;
 	*(new_pcb->pb_count) += 1;
-
-	PID = getNewPID();
-	new_pcb->PID = PID;
 
 	/* Set the state for this process to return to userspace function w/ stack
 	 * going through kernelspace ret_from_for w/ kernelstack */
@@ -66,10 +62,12 @@ int sys_clone(void (*function)(void), void *stack, unsigned int last_sp) {
 	new_pcb->user_lr = (unsigned int)function; // we could try to go to exit
 	new_stack->stack[pos_sp+10] = (unsigned int)function;
 
-	/* Inicialització estadistica */
+	/* Stats initialization */
 	new_pcb->process_state = ST_READY;
 	new_pcb->statistics.tics = 0;
 	new_pcb->statistics.cs = 0;
+	PID = getNewPID();
+	new_pcb->PID = PID;
 
 	/* Push to readyqueue to be scheduled */
 	sched_update_queues_state(&readyqueue,new_pcb);
@@ -78,6 +76,7 @@ int sys_clone(void (*function)(void), void *stack, unsigned int last_sp) {
 
 }
 
+/* Syscall clone wrapper */
 int sys_clone_wrapper(void (*function)(void), void *stack) {
 	int ret, current_sp = 0;
 	__asm__ __volatile__("mov %0, sp;" : "=r" (current_sp));
@@ -86,6 +85,7 @@ int sys_clone_wrapper(void (*function)(void), void *stack) {
 
 }
 
+/* Debug task_switch syscall */
 int sys_DEBUG_tswitch() {
 
 	sched_update_queues_state(&readyqueue,current());
@@ -94,26 +94,25 @@ int sys_DEBUG_tswitch() {
 	return 0;
 }
 
+/* Syscall fork, task creation */
 int sys_fork(unsigned int last_sp) {
 	int PID;
 	unsigned int pos_sp = 0; // sp position relatively from the stack
-	int pag;
+	int pag, pb;
 	int new_ph_pag;
 	int frames[NUM_PAG_DATA];
 
-	/* Obtenció d'una task_struct nova de la freequeue */
+	/* Variables initialization, get new task_struct from freequeue */
 	if (list_empty(&freequeue)) return -ENTASK;
 	struct list_head *new_list_pointer = list_first(&freequeue);
 	list_del(new_list_pointer);
 	struct task_struct * new_pcb = list_head_to_task_struct(new_list_pointer);
 	struct task_struct * current_pcb = current();
 	union task_union *new_stack = (union task_union*)new_pcb;
-
-
 	pos_sp = ((unsigned int)last_sp-(unsigned int)current_pcb)/4;
 
-	/* Obtenció dels frames per al nou procés */
-	for (pag=0;pag<NUM_PAG_DATA;pag++){
+	/* Get new frames for the process */
+	for (pag=0; pag<NUM_PAG_DATA; pag++) {
 		new_ph_pag=alloc_frame();
 		if (new_ph_pag == -1) {
 			while(pag != 0) free_frame(frames[--pag]); // rollback
@@ -122,12 +121,11 @@ int sys_fork(unsigned int last_sp) {
 		else frames[pag] = new_ph_pag;
 	}
 
-	/* Copia del Stack, i obtenció del directori del fill*/
+	/* Copy of the stack and get directory for the child */
 	copy_data(current_pcb, new_pcb, 4096);
 	allocate_page_dir(new_pcb);
 
-	/* Punt d.i: Copia de les page tables de codi, i assignació de
-	 * 						frames per a les dades	*/
+	/* Copy code page tables, associate the new data frames */
 	sl_page_table_entry * pt_usr_new = get_PT(new_pcb,1);
 	sl_page_table_entry * pt_usr_current = get_PT(current_pcb,1);
 	fl_page_table_entry * dir_current = get_DIR(current_pcb);
@@ -142,98 +140,83 @@ int sys_fork(unsigned int last_sp) {
 		set_ss_pag(pt_usr_new,INIT_USR_DATA_PAG_D1+pag,frames[pag]);
 	}
 
-	/* Punt d.ii */
-	/* Gestió extra per evitar problemes amb Memoria dinàmica:
-	 * 	- Busquem entrades a la page_table lliures, en comptes de 20 directes
-	 * 	- Si arribem al limit sense haver-ne trobat ni una retornem error, doncs
-	 * 		no es pot fer el fork per falta de page tables entry al pare.
-	 * 	- Si arribem al limit però hem pogut fer almenys una copia:
-	 * 		flush a la TLB i tornem a buscar desde el principi.
-	 * */
+	/* Copy user data */
+	/* Extra code to avoid selecting used pages. */
 	int free_pag = PROC_FIRST_FREE_PAG_D1;
-	for (pag=0;pag<NUM_PAG_DATA;pag++){
+	for (pag=0; pag<NUM_PAG_DATA; pag++) {
 			while (check_used_page(&pt_usr_current[free_pag]) && free_pag<TOTAL_PAGES_ENTRIES) free_pag++;
 
 			if (free_pag == TOTAL_PAGES_ENTRIES) {
-				if (pag != 0) {
+				if (pag > 0) {
 					free_pag = PROC_FIRST_FREE_PAG_D1;
 					--pag;
-					// TLB flush
 					mmu_change_dir(dir_current);
 				}
 				else return -ENEPTE;
 			}
 			else {
-				/* d.ii.A: Assignació de noves pàgines logiques al procés actual, corresponents
-				 * 					a les pàgines físiques obtingudes per al procés nou	*/
 				set_ss_pag(pt_usr_current,free_pag,pt_usr_new[INIT_USR_DATA_PAG_D1+pag].bits.pbase_addr);
-
-				/* d.ii.B: Copia de l'espai d'usuari del proces actual al nou */
 				copy_data((void *)((PAG_LOG_INIT_DATA_P0+pag)<<12),	(void *)((0x100+free_pag)<<12), PAGE_SIZE);
-
-				/* d.ii.C: Desassignació de les pagines en el procés actual */
 				del_ss_pag(pt_usr_current, free_pag);
 
 				free_pag++;
 			}
 	}
 
-	/* Flush de la TLB */
+	/* TLB flush */
 	mmu_change_dir(dir_current);
 
-
+	/* Copy Heap data */
 	get_newpb(new_pcb);
 	*(new_pcb->program_break) = *(current_pcb->program_break);
+	pb = *(current_pcb->program_break);
+	free_pag = PAGE(pb+(1<<OFFSET_BITS));
+	for (pag=USR_P_HEAPSTART; pag < PAGE(pb) || ( pag == PAGE(pb) && (0 != OFFSET(pb)) );pag++) {
 
-	/* Copia de la zona HEAP, similar a la copia de pagines de dades */
-	free_pag = ((*(current_pcb->program_break)>>12)&0xFF)+1;
-	for (pag=USR_P_HEAPSTART; pag < ((*(current_pcb->program_break)>>12)&0xFF) ||
-					( pag == ((*(current_pcb->program_break)>>12)&0xFF) && (0 != (*(current_pcb->program_break) & (PAGE_SIZE-1))) );pag++) {
-			while(!check_used_page(&pt_usr_current[free_pag]) && free_pag<TOTAL_PAGES_ENTRIES) free_pag++;
+		while(check_used_page(&pt_usr_current[free_pag]) && free_pag<TOTAL_PAGES_ENTRIES) free_pag++;
 
-			if (free_pag == TOTAL_PAGES_ENTRIES) {
-				if (pag != 0) {
-					free_pag = ((*(current_pcb->program_break)>>12)&0xFF)+1;
-					--pag;
-					mmu_change_dir(dir_current);
-				}
-				else return -ENEPTE;
+		if (free_pag == TOTAL_PAGES_ENTRIES) {
+			if (pag > USR_P_HEAPSTART) {
+				free_pag = PAGE(pb+(1<<OFFSET_BITS));
+				--pag;
+				mmu_change_dir(dir_current);
 			}
-			else {
-				/* Obtenció del frame pel heap del fill */
-				new_ph_pag=alloc_frame();
-				if (new_ph_pag == -1) {
-					pag--;
-					while(pag >= USR_P_HEAPSTART) free_frame(pt_usr_new[pag--].bits.pbase_addr);
-					return -ENMPHP;
-				}
-
-				/* Assignació del frame nou, al procés fill */
-				set_ss_pag(pt_usr_new,pag,new_ph_pag);
-
-				/* Copia del Heap: es necessari posar el frame en el pt del pare per a fer-ho */
-				set_ss_pag(pt_usr_current,free_pag,pt_usr_new[pag].bits.pbase_addr);
-				copy_data((void *)((pag)<<12),	(void *)(free_pag<<12), PAGE_SIZE);
-				del_ss_pag(pt_usr_current, free_pag);
-
-				free_pag++;
+			else return -ENEPTE;
+		}
+		else {
+			new_ph_pag=alloc_frame();
+			if (new_ph_pag == -1) {
+				for(pag = pag-1; pag >= USR_P_HEAPSTART; pag--) free_frame(pt_usr_new[pag].bits.pbase_addr);
+				return -ENMPHP;
 			}
+
+			/* Association to the new task */
+			set_ss_pag(pt_usr_new,pag,new_ph_pag);
+
+			/* Temporally association to copy the page on the current task */
+			set_ss_pag(pt_usr_current,free_pag,pt_usr_new[pag].bits.pbase_addr);
+			copy_data((void *)((pag)<<12),	(void *)(free_pag<<12), PAGE_SIZE);
+			del_ss_pag(pt_usr_current, free_pag);
+
+			free_pag++;
+		}
 	}
+
+	/* TLB flush */
 	mmu_change_dir(dir_current);
 
-	PID = getNewPID();
-	new_pcb->PID = PID;
-
-	/* Punt f i g */
+	/* Setting the returning state */
 	new_pcb->kernel_sp = (unsigned int)&new_stack->stack[pos_sp];
 	new_pcb->kernel_lr = (unsigned int)&ret_from_fork;
 	new_pcb->user_sp = USER_SP;
 	new_pcb->user_lr = current_pcb->user_lr;
 
-	/* Inicialització estadistica */
+	/* Stats initialization */
 	new_pcb->process_state = ST_READY;
 	new_pcb->statistics.tics = 0;
 	new_pcb->statistics.cs = 0;
+	PID = getNewPID();
+	new_pcb->PID = PID;
 
 	/* Push to readyqueue to be scheduled */
 	sched_update_queues_state(&readyqueue,new_pcb);
@@ -241,19 +224,20 @@ int sys_fork(unsigned int last_sp) {
 	return PID;
 }
 
+/* Syscall fork wrapper */
 int sys_fork_wrapper() {
 	int current_sp = 0;
 	__asm__ __volatile__("mov %0, sp;" : "=r" (current_sp));
 	return sys_fork(current_sp);
 }
 
+/* Syscall exit, kills current process */
 void sys_exit() {
-	/* Punt a */
 	int pag;
 	struct task_struct * current_pcb = current();
 	sl_page_table_entry * pt_current = get_PT(current_pcb,1);
 
-	/* Allibera les 20 de Data i la resta (HEAP), a partir de l'entrada 256+8 */
+	/* Free DATA & HEAP region */
 	if (*(current_pcb->dir_count) == 1) {
 		for (pag=PROC_FIRST_FREE_PAG_D1;pag<TOTAL_PAGES_ENTRIES ;pag++){
 			free_frame(pt_current[pag].bits.pbase_addr);
@@ -262,14 +246,11 @@ void sys_exit() {
 	*(current_pcb->dir_count) -= 1;
 	*(current_pcb->pb_count) -= 1;
 
-	// TODO sem
-
-	/* Punt b */
 	sched_update_queues_state(&freequeue,current());
 	sched_switch_process();
 }
 
-
+/* Syscall write */
 int sys_write(int fd, char * buffer, int size) {
 	char buff[4];
 	int ret = 0;
@@ -292,6 +273,7 @@ int sys_write(int fd, char * buffer, int size) {
 	return ret;
 }
 
+/* Syscall read */
 int sys_read(int fd, char * buffer, int size) {
 	int ret = 0;
 
@@ -306,18 +288,22 @@ int sys_read(int fd, char * buffer, int size) {
 	return ret;
 }
 
+/* Syscall led */
 void sys_led(int state) {
 	if (state) gpio_set_led_on();
 	else gpio_set_led_off();
 }
 
+/* Syscall gettime */
 unsigned int sys_gettime() {
 	return clock_get_time();
 }
 
+/* Syscall get_stats */
 int sys_get_stats(int pid, struct stats *st) {
 	struct task_struct * desired;
 	int found;
+
 	if (access_ok(VERIFY_WRITE,st,12) == 0) return -ENACCB;
 
 	found = getStructPID(pid, &readyqueue, &desired);
@@ -330,39 +316,46 @@ int sys_get_stats(int pid, struct stats *st) {
 
 
 /* SEMAPHORES */
+
+/* Syscall semaphore init, init n_sem semaphore */
 int sys_sem_init(int n_sem, unsigned int value) {
 	int ret = 0;
 
 	if (n_sem < 0 || n_sem >= SEM_SIZE) return -EINVSN;
 	if (sem_array[n_sem].pid_owner != -1) return -ESINIT;
+
 	sem_array[n_sem].pid_owner = current()->PID;
 	sem_array[n_sem].value = value;
 	INIT_LIST_HEAD(&sem_array[n_sem].semqueue);
 	return ret;
 }
 
+/* Syscall semaphore wait, waits on n_sem semaphore */
 int sys_sem_wait(int n_sem) {
 	int ret = 0;
+
 	if (n_sem < 0 || n_sem >= SEM_SIZE) return -EINVSN;
 	if (sem_array[n_sem].pid_owner == -1) return -ENINIT;
+
 	if (sem_array[n_sem].value <= 0) {
 		sched_update_queues_state(&sem_array[n_sem].semqueue,current());
 		sched_switch_process();
 	}
 	else sem_array[n_sem].value--;
 
-	/* Hem de mirar si després de l'espera en la cua
-	 * s'ha destruit el semafor o no, per indicar-ho al usuari*/
+	/* We tell the user if the sem was destroyed or not */
 	if (sem_array[n_sem].pid_owner == -1) ret = -ESDEST;
 
 	return ret;
 }
 
+/* Syscall semaphore signal, send signal to n_sem semaphore */
 int sys_sem_signal(int n_sem) {
 	int ret = 0;
 
 	if (n_sem < 0 || n_sem >= SEM_SIZE) return -EINVSN;
 	if (sem_array[n_sem].pid_owner == -1) return -ENINIT;
+
 	if(list_empty(&sem_array[n_sem].semqueue)) sem_array[n_sem].value++;
 	else {
 		struct list_head *task_list = list_first(&sem_array[n_sem].semqueue);
@@ -374,11 +367,13 @@ int sys_sem_signal(int n_sem) {
 	return ret;
 }
 
+/* Syscall semaphore destroy, destroy n_sem semaphore */
 int sys_sem_destroy(int n_sem) {
 	int ret = 0;
 
 	if (n_sem < 0 || n_sem >= SEM_SIZE) return -EINVSN;
 	if (sem_array[n_sem].pid_owner == -1) return -ENINIT;
+
 	if (current()->PID == sem_array[n_sem].pid_owner) {
 		sem_array[n_sem].pid_owner = -1;
 		while (!list_empty(&sem_array[n_sem].semqueue)) {
@@ -393,7 +388,7 @@ int sys_sem_destroy(int n_sem) {
 	return ret;
 }
 
-
+/* Syscall sbrk, dynamic memory */
 void *sys_sbrk(int increment) {
 	int i;
 	struct task_struct * current_pcb = current();

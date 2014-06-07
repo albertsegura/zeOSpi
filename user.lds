@@ -1,7 +1,3 @@
-/*
- *  ZeOS - jcosta septembre 2006
- *  user.lds - Linker Script to create user memory image
- */
 
 ENTRY(main)
 SECTIONS

@@ -1,7 +1,3 @@
-/*
- * asm.h - Definició de variable global als fitxers .s
- */
-
 #ifndef __ASM_H__
 #define __ASM_H__
 

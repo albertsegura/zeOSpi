@@ -1,5 +1,5 @@
-#ifndef _SEMAPHORE
-#define _SEMAPHORE
+#ifndef __SEMAPHORE__
+#define __SEMAPHORE__
 
 #include <list.h>
 
@@ -10,4 +10,4 @@ typedef struct {
 		struct list_head semqueue;
 }Sem;
 
-#endif /* _SEMAPHORE */
+#endif /* __SEMAPHORE__ */

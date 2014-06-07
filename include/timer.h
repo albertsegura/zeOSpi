@@ -1,7 +1,3 @@
-/*
- * timer.h
- */
-
 #ifndef __TIMER_H__
 #define __TIMER_H__
 
@@ -9,8 +5,8 @@
 #include <utils.h>
 
 
-#define TIMER_BASE_PH	0x2000B000
-#define TIMER_BASE		0xF3000	/* ph 0x2000B000 */
+#define TIMER_BASE_PH		0x2000B000
+#define TIMER_BASE			0xF3000	/* ph 0x2000B000 */
 
 #define TIMER_LOAD			(TIMER_BASE+0x400)
 #define TIMER_VALUE			(TIMER_BASE+0x404)

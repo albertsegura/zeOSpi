@@ -1,5 +1,5 @@
-#ifndef _LINUX_LIST_H
-#define _LINUX_LIST_H
+#ifndef __LINUX_LIST_H__
+#define __LINUX_LIST_H__
 
 /*
  * Simple doubly linked list implementation.
@@ -149,4 +149,4 @@ static inline int list_empty(const struct list_head *head)
 #define list_first(head)                \
          (head)->next
 
-#endif /* _LINUX_LIST_H */
+#endif /* __LINUX_LIST_H__ */

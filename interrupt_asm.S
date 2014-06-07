@@ -1,6 +1,4 @@
 #include <asm.h>
-#include <segment.h>
-
 
 ;@ Exceptions Table
 ENTRY(exception_vector_table)
@@ -81,7 +79,7 @@ ENTRY_UA(data_abort_handler)
 	ldmfd 	sp!, {r0-r12,pc}^
 
 ENTRY_UA(interrupt_request_handler)
-	srsfd 	sp!, 0x13 ;@ svc
+	srsfd 	sp!, #0x13 ;@ svc
 	cpsid	i,	#0x13 ;@ svc
 	stmfd 	sp!, {r0-r12,lr}
 	cps		#0x1F ;@ system

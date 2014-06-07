@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+
 if ($#ARGV != 0) {
 	print "Usage: perl script.pl  device\n";
 	exit 1;

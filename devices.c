@@ -1,7 +1,3 @@
-/*
- * devices.c -
- */
-
 #include <cbuffer.h>
 #include <io.h>
 #include <list.h>
@@ -13,22 +9,17 @@
 #include <utils.h>
 #include <devices.h>
 
+/* Interrupt uart routine */
 void interrupt_uart_routine() {
-	char data, aux;
+	char data;
 
 	data = uart_get_byte();
 
-	/* S'escriu si el Buffer no està ple */
-	if (circularbIsFull(&uart_read_buffer)) circularbRead(&uart_read_buffer, &aux);
+	/* If the buffer is full, the data is lost */
 	circularbWrite(&uart_read_buffer,&data);
-
-	// TODO debug
-	printc('\n'); printc(13);
-	printk("Elem:");
-	printint(circularbNumElements(&uart_read_buffer));
-	printc('\n'); printc(13);
 }
 
+/* Uart syscall read */
 int sys_read_uart(char *buffer, int size) {
 	int i=0;
 	char read;
@@ -38,15 +29,14 @@ int sys_read_uart(char *buffer, int size) {
 	current_pcb->kbinfo.keybuffer = buffer;
 	current_pcb->kbinfo.keysread = 0;
 
+	/* If someone else is waiting we wait */
 	if (!list_empty(&keyboardqueue)) {
 		sched_update_queues_state(&keyboardqueue,current());
-		asm ("stmfd 	sp!, {r0-r12,lr};");
 		sched_switch_process();
-		asm("ldmfd 	sp!, {r0-r12,lr};");
 	}
 
+	/* Now we are the task at the front of the queue */
 	while (current_pcb->kbinfo.keystoread > 0) {
-
 		if (!circularbIsEmpty(&uart_read_buffer)){
 			for (i=current_pcb->kbinfo.keystoread; i>0 && !circularbIsEmpty(&uart_read_buffer); i--) {
 				circularbRead(&uart_read_buffer,&read);
@@ -58,17 +48,16 @@ int sys_read_uart(char *buffer, int size) {
 		}
 
 		if (current_pcb->kbinfo.keystoread > 0){
-			// Insert in the front of the queue
+			/* Inserted at the front of the queue */
 			sched_update_queues_state(&keyboardqueue,current());
-			asm ("stmfd 	sp!, {r0-r12,lr};");
 			sched_switch_process();
-			asm("ldmfd 	sp!, {r0-r12,lr};");
 		}
 	}
 
 	return current_pcb->kbinfo.keysread;
 }
 
+/* Uart syscall write */
 int sys_write_uart(char *buffer,int size) {
 	int i;
 

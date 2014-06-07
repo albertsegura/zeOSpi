@@ -1,7 +1,3 @@
-/*
- * sched.h - Estructures i macros pel tractament de processos
- */
-
 #ifndef __SCHED_H__
 #define __SCHED_H__
 
@@ -25,7 +21,7 @@ struct keyboard_info {
 };
 
 struct task_struct {
-	int PID;			/* Process ID */
+	int PID;
 	fl_page_table_entry * dir_pages_baseAddr;
 	struct list_head list;
 	unsigned int kernel_sp;
@@ -36,23 +32,23 @@ struct task_struct {
 	struct stats statistics;
 	enum state_t process_state;
 
-	/* Utilitzat per implementar els threads*/
-	Byte *dir_count; /* Punter al contador de referencies al directori propi. */
+	/* Needed to implement Threads */
+	Byte *dir_count; /* Pointer to the references of its own directory */
 
-	/* Utilitzat per a la implementació del read*/
+	/* Read syscall */
 	struct keyboard_info kbinfo;
 
-	/* Utilitzat pel control de la zona HEAP */
+	/* HEAP variables */
 	unsigned int *program_break;
 	Byte *pb_count;
 };
 
 union task_union {
 	struct task_struct task;
-	unsigned long stack[KERNEL_STACK_SIZE];    /* pila de sistema, per procés */
+	unsigned long stack[KERNEL_STACK_SIZE];
 };
 
-extern union task_union task[NR_TASKS]; /* Vector de tasques */
+extern union task_union task[NR_TASKS]; /* Tasks array */
 extern struct task_struct *idle_task;
 extern struct list_head freequeue;
 extern struct list_head readyqueue;
@@ -61,32 +57,26 @@ extern struct task_struct * idle_task;
 extern unsigned int rr_quantum;
 extern int lastPID;
 
+void init_freequeue();
+void init_readyqueue();
+void init_keyboardqueue();
+
 void init_task1();
-
-void init_freequeue ();
-
-void init_readyqueue ();
-
-void init_keyboardqueue ();
-
 void init_idle();
-
 void init_sched();
-
 void init_semarray();
 
 struct task_struct * current();
 
+void task_switch_wrapper(union task_union *new);
 void task_switch(union task_union *new, unsigned int last_sp);
 
 int getNewPID();
-
 int getStructPID(int PID, struct list_head * queue, struct task_struct ** pointer_to_desired);
 
 struct task_struct *list_head_to_task_struct(struct list_head *l);
 
 sl_page_table_entry * get_PT (struct task_struct *t, unsigned char dir_entry) ;
-
 fl_page_table_entry * get_DIR (struct task_struct *t) ;
 
 
@@ -106,7 +96,7 @@ void (* sched_switch_process)();
 /* Update queues and state of processes.*/
 void (* sched_update_queues_state)(struct list_head* ls, struct task_struct * task);
 
-/* Inicialització de la politica de scheduler Round Robin */
+/* Round Robin policy scheduler initialization */
 void init_Sched_RR();
 
 void sched_update_data_RR();

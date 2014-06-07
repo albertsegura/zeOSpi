@@ -1,12 +1,9 @@
-/*
- * hardware.c 
- */
-
-
 #include <types.h>
 #include <utils.h>
 #include <sched.h>
 
+
+/* Return gate to user space, enables interruption for userspace */
 void return_gate(unsigned int sp, unsigned int pc) {
 	__asm__ __volatile__ (
 		"cps #0x1F;"

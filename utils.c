@@ -18,7 +18,7 @@ void copy_data(void *start, void *dest, int size)
     size --;
   }
 }
-/* Copia de espacio de usuario a espacio de kernel, devuelve 0 si ok y -1 si error*/
+
 int copy_from_user(void *start, void *dest, int size)
 {
   DWord *p = start, *q = dest;
@@ -35,7 +35,7 @@ int copy_from_user(void *start, void *dest, int size)
   }
   return 0;
 }
-/* Copia de espacio de kernel a espacio de usuario, devuelve 0 si ok y -1 si error*/
+
 int copy_to_user(void *start, void *dest, int size)
 {
   DWord *p = start, *q = dest;
@@ -84,18 +84,21 @@ int access_ok(int type, const void * addr, unsigned long size)
   return 0;
 }
 
+/* get address with value */
 inline void set_address_to(unsigned int address, unsigned int value) {
 	unsigned int * pt = (unsigned int *) address;
 	*(pt) = value;
 }
 
+/* get value from address */
 inline unsigned int get_value_from(unsigned int address) {
 	unsigned int * pt = (unsigned int *) address;
 	return (*pt);
 }
 
+/* Delay. Blank on purpose, generates: asm ("bx lr"); */
 void delay() {
-	// Blank on purpose, generates: asm ("bx lr");
+
 }
 
 

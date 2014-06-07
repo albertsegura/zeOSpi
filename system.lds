@@ -1,14 +1,10 @@
-/*
- *  ZeOS
- *  system.lds - Linker Script for ZeOS system image.
- */
 
 ENTRY(main)
 SECTIONS
 {
   . = 0x10000;
   
-  .text.main : { 
+  .text.main : {
     /* reserved to store user code size */
     LONG(0);
     LONG(0);
@@ -21,7 +17,7 @@ SECTIONS
   .data : { *(.data) }
   .bss : { *(.bss) }
 
-  . = ALIGN(4096);              /* task_structs array*/
+  . = ALIGN(4096);
   .data.task : { *(.data.task) }
   . = ALIGN(16384); 
   .data.mmu_fl_page : { *(.data.mmu_fl_page) }

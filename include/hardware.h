@@ -1,7 +1,3 @@
-/*
- * hardware.h - Rutines hardware per manegar els accesos a baix nivell
- */
-
 #ifndef __HARDWARE_H__
 #define __HARDWARE_H__
 

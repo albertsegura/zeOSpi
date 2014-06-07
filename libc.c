@@ -1,7 +1,3 @@
-/*
- * libc.c 
- */
-
 #include <libc.h>
 #include <types.h>
 #include <errno.h>
@@ -40,6 +36,7 @@ int strlen(char *a) {
 	return i;
 }
 
+/* Wrapper Syscall Write */
 int write (int fd, char *buffer, int size) {
 	int ret;
 	__asm__ volatile(
@@ -49,11 +46,11 @@ int write (int fd, char *buffer, int size) {
 		"mov %%r7, %4;"
 		"svc 0x0;"
 		"mov %0, %%r0;"
-		:"=r" (ret) 				// %0, resultat a ret
+		:"=r" (ret) 				// %0, result to ret
 		:"r" (fd),					// %1, parameter 1
 		"r" (buffer),				// %2, parameter 2
 		"r" (size),					// %3, parameter 3.
-		"r" (4)					// %4, sys_call_table index
+		"r" (4)						// %4, sys_call_table index
 		:"r0", "r1", "r2", "r7"		// We tell the compiler the registers modified
 	);
 	if (ret < 0) {
@@ -63,6 +60,7 @@ int write (int fd, char *buffer, int size) {
 	return ret;
 }
 
+/* Wrapper Syscall Read */
 int read (int fd, char *buffer, int size) {
 	int ret;
 	__asm__ volatile(
@@ -86,6 +84,7 @@ int read (int fd, char *buffer, int size) {
 	return ret;
 }
 
+/* Wrapper Syscall Gettime */
 unsigned int gettime() {
 	int ret;
 	__asm__ volatile(
@@ -99,6 +98,7 @@ unsigned int gettime() {
 	return ret;
 }
 
+/* Wrapper Syscall GetPid */
 int getpid() {
 	int ret;
 	__asm__ volatile(
@@ -112,6 +112,7 @@ int getpid() {
 	return ret;
 }
 
+/* Wrapper Syscall Fork */
 int fork() {
 	int ret;
 	__asm__ volatile(
@@ -129,6 +130,7 @@ int fork() {
 	return ret;
 }
 
+/* Wrapper Syscall Debug sys_DEBUG_tswitch */
 int debug_task_switch() {
 	int ret;
 	__asm__ volatile(
@@ -142,6 +144,7 @@ int debug_task_switch() {
 	return ret;
 }
 
+/* Wrapper Syscall Exit */
 void exit() {
 	__asm__ volatile(
 		"mov %%r7, %0;"
@@ -152,6 +155,7 @@ void exit() {
 	);
 }
 
+/* Wrapper Syscall get_stats */
 int get_stats(int pid, struct stats *st) {
 	int ret;
 	__asm__ volatile(
@@ -173,6 +177,7 @@ int get_stats(int pid, struct stats *st) {
 	return ret;
 }
 
+/* Wrapper Syscall clone */
 int clone (void (*function)(void), void *stack) {
 	int ret;
 	__asm__ volatile(
@@ -194,6 +199,7 @@ int clone (void (*function)(void), void *stack) {
 	return ret;
 }
 
+/* Wrapper Syscall Sem_init */
 int sem_init (int n_sem, unsigned int value) {
 	int ret;
 	__asm__ volatile(
@@ -215,6 +221,7 @@ int sem_init (int n_sem, unsigned int value) {
 	return ret;
 }
 
+/* Wrapper Syscall Sem_wait */
 int sem_wait (int n_sem) {
 	int ret;
 	__asm__ volatile(
@@ -234,6 +241,7 @@ int sem_wait (int n_sem) {
 	return ret;
 }
 
+/* Wrapper Syscall sem_signal */
 int sem_signal (int n_sem) {
 	int ret;
 	__asm__ volatile(
@@ -253,6 +261,7 @@ int sem_signal (int n_sem) {
 	return ret;
 }
 
+/* Wrapper Syscall sem_destroy */
 int sem_destroy (int n_sem) {
 	int ret;
 	__asm__ volatile(
@@ -272,6 +281,7 @@ int sem_destroy (int n_sem) {
 	return ret;
 }
 
+/* Wrapper Syscall sbrk */
 void *sbrk (int increment) {
 	void *ret;
 	__asm__ volatile(
@@ -291,6 +301,7 @@ void *sbrk (int increment) {
 	return ret;
 }
 
+/* Wrapper Syscall led */
 void change_led(int status) {
 	__asm__ volatile(
 		"mov %%r0, %0;"
