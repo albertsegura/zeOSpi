@@ -208,7 +208,7 @@ int sys_fork(unsigned int last_sp) {
 	/* Setting the returning state */
 	new_pcb->kernel_sp = (unsigned int)&new_stack->stack[pos_sp];
 	new_pcb->kernel_lr = (unsigned int)&ret_from_fork;
-	new_pcb->user_sp = USER_SP;
+	new_pcb->user_sp = current_pcb->user_sp;
 	new_pcb->user_lr = current_pcb->user_lr;
 
 	/* Stats initialization */

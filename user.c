@@ -131,7 +131,7 @@ void semaphores_test1() {
 int __attribute__ ((__section__(".text.main"))) main() {
 
 	//dinam_test2();
-	//semaphores_test1();
+	semaphores_test1();
 
 	pid = fork();
 	//pid = clone(cloneHello, &stack[1024]);

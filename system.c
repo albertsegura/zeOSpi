@@ -38,18 +38,18 @@ int __attribute__((__section__(".text.main"))) main() {
 	/* Initialize Memory */
 	init_mm();
 
-	/* Initialize Queues&Semaphores */
-	init_freequeue();
-	init_readyqueue();
-	init_keyboardqueue();
-	init_semarray();
-
 	/* Initialize Raspberry Pi Peripherals */
 	init_gpio();
 	init_uart();
 	init_timer();
 
 	printk("Kernel Loaded!\n");
+
+	/* Initialize Queues&Semaphores */
+	init_freequeue();
+	init_readyqueue();
+	init_keyboardqueue();
+	init_semarray();
 
 	init_sched();
 	init_idle();
